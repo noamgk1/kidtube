@@ -44,7 +44,10 @@ fun KidSearchScreen(
     onPlay: (VideoRef) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val results = VideoSearch.search(videos, query)
+    // A blank box shows the whole approved library rather than a hint. A child who
+    // cannot type yet still gets somewhere to browse, and this is the only screen that
+    // shows everything at once; typing narrows it.
+    val results = if (query.isBlank()) videos else VideoSearch.search(videos, query)
 
     Column(modifier = modifier.fillMaxSize()) {
         OutlinedTextField(
@@ -52,7 +55,9 @@ fun KidSearchScreen(
             onValueChange = onQueryChange,
             singleLine = true,
             textStyle = MaterialTheme.typography.titleMedium,
-            placeholder = { Text("חפשו סרטון", style = MaterialTheme.typography.titleMedium) },
+            placeholder = {
+                Text("חפשו סרטון", style = MaterialTheme.typography.titleMedium)
+            },
             leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
             trailingIcon = {
                 if (query.isNotEmpty()) {
@@ -69,8 +74,8 @@ fun KidSearchScreen(
         )
 
         when {
-            query.isBlank() -> SearchHint("אפשר לחפש לפי שם הסרטון")
-            results.isEmpty() -> SearchHint("לא מצאנו סרטון כזה")
+            results.isEmpty() && query.isNotBlank() -> SearchHint("לא מצאנו סרטון כזה")
+            results.isEmpty() -> EmptyLibraryMessage()
             else -> LazyVerticalGrid(
                 columns = GridCells.Adaptive(minSize = CARD_WIDTH),
                 contentPadding = PaddingValues(12.dp),

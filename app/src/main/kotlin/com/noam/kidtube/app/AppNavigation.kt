@@ -75,6 +75,9 @@ enum class AppScreen { GRID, PLAYER, ERROR, LOCKED, ADMIN_GATE, ADMIN }
 
 private const val TICK_INTERVAL_MS = 15_000L
 
+/** How often the parent's content screen re-reads sync progress while it is open. */
+private const val SYNC_POLL_INTERVAL_MS = 2_000L
+
 /**
  * One read of the library, shared by all three of the child's destinations.
  *
@@ -412,9 +415,16 @@ private fun AdminHost(graph: Graph, authenticator: AdminAuthenticator, onExit: (
                 val whitelist by produceState(Whitelist(), version) {
                     value = withContext(Dispatchers.IO) { graph.whitelistStore.load() }
                 }
+                // Polled rather than read once: a deep sync of a large channel runs for
+                // minutes in a scope that outlives this screen, and a parent watching a
+                // channel they just added would otherwise see nothing happen at all. The
+                // loop lives only as long as this tab is on screen.
                 val syncStates by produceState(emptyMap<String, SyncState>(), version) {
-                    value = withContext(Dispatchers.IO) {
-                        graph.syncStateStore.all().associateBy { it.channelId }
+                    while (true) {
+                        value = withContext(Dispatchers.IO) {
+                            graph.syncStateStore.all().associateBy { it.channelId }
+                        }
+                        delay(SYNC_POLL_INTERVAL_MS)
                     }
                 }
                 val open = openChannel

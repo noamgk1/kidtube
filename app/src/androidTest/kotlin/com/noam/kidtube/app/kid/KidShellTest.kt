@@ -105,6 +105,16 @@ class KidShellTest {
         compose.onNodeWithText("Allowed Video", substring = true).assertIsDisplayed()
     }
 
+    /** A child who cannot type yet still needs somewhere to go from the search tab. */
+    @Test
+    fun anEmptySearchBoxShowsTheWholeApprovedLibrary() {
+        compose.setContent { Shell() }
+
+        compose.onNodeWithText("חיפוש").performClick()
+
+        compose.onAllNodesWithTag("video-tile").assertCountEquals(1)
+    }
+
     @Test
     fun aSearchThatMatchesNothingOffersNothing() {
         compose.setContent { Shell() }

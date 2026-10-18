@@ -37,8 +37,8 @@ fun KidHomeScreen(
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        contentPadding = PaddingValues(top = 24.dp, bottom = 32.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
         items(sections, key = { it.kind.name + (it.channel?.id?.value ?: "") }) { section ->
             Column {
