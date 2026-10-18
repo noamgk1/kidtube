@@ -31,6 +31,10 @@ compose-ui-test-junit4 = { module = "androidx.compose.ui:ui-test-junit4" }
 compose-ui-test-manifest = { module = "androidx.compose.ui:ui-test-manifest" }
 coil-compose = { module = "io.coil-kt:coil-compose", version = "2.7.0" }
 okhttp = { module = "com.squareup.okhttp3:okhttp", version = "4.12.0" }
+# Pinned explicitly rather than relied on transitively: the PO token codec parses
+# YouTube BotGuard challenge JSON with it, so it must be on the compile classpath.
+nanojson = { module = "com.github.TeamNewPipe:nanojson", version = "e9d656ddb49a412a5a0a5d5ef20ca7ef09549996" }
+jsoup = { module = "org.jsoup:jsoup", version = "1.22.2" }
 turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
 desugar-jdk-libs-nio = { module = "com.android.tools:desugar_jdk_libs_nio", version.ref = "desugar" }
 

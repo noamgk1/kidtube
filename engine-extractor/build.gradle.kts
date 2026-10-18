@@ -27,6 +27,8 @@ dependencies {
     api(project(":engine-api"))
     implementation(libs.newpipe.extractor)
     implementation(libs.okhttp)
+    implementation(libs.nanojson)
+    implementation(libs.jsoup)
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.ui)
     implementation(platform(libs.compose.bom))
