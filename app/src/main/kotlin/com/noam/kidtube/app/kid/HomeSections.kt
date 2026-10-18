@@ -50,10 +50,15 @@ object HomeSections {
 
         sections += HomeSection(SectionKind.NEWEST, snapshot.videos.take(ROW_LIMIT))
 
-        snapshot.channels.forEach { channel ->
-            val videos = snapshot.forChannel(channel).take(ROW_LIMIT)
-            if (videos.isNotEmpty()) {
-                sections += HomeSection(SectionKind.CHANNEL, videos, channel)
+        // With a single approved channel its row would repeat the newest row exactly,
+        // and the child would see every tile twice. Grouping by channel only says
+        // something once there is more than one channel to tell apart.
+        if (snapshot.channels.size > 1) {
+            snapshot.channels.forEach { channel ->
+                val videos = snapshot.forChannel(channel).take(ROW_LIMIT)
+                if (videos.isNotEmpty()) {
+                    sections += HomeSection(SectionKind.CHANNEL, videos, channel)
+                }
             }
         }
 

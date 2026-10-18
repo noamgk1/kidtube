@@ -85,12 +85,12 @@ class AdminAuthenticatorTest {
     }
 
     @Test
-    fun `a destructive reset wipes the content as well as the password`() {
+    fun `a destructive reset wipes the content and retires the password`() {
         seed()
         auth.setPassword("forgotten".toCharArray())
         auth.resetDestructively()
 
-        assertFalse(auth.isPasswordSet())
+        assertFalse(auth.authenticate("forgotten".toCharArray()))
         assertTrue(whitelistStore.load().channels.isEmpty())
         assertTrue(catalogStore.channelIds().isEmpty())
         assertTrue(ledger.all().isEmpty())
@@ -129,5 +129,53 @@ class AdminAuthenticatorTest {
         auth.setPassword("p".toCharArray())
         auth.resetDestructively()
         assertEquals(45, settingsStore.load().dailyLimitMinutes)
+    }
+
+    // The door ships locked. Before this, a fresh device handed the first person to find
+    // the admin hold the right to choose the password - parent or child, whoever got
+    // there first.
+
+    @Test
+    fun `a fresh install already has the factory password`() {
+        auth.ensureDefaultPassword()
+
+        assertTrue(auth.isPasswordSet())
+        assertTrue(auth.authenticate(AdminAuthenticator.DEFAULT_PASSWORD.toCharArray()))
+    }
+
+    @Test
+    fun `seeding never overwrites a password the parent chose`() {
+        auth.setPassword("chosen-by-the-parent".toCharArray())
+
+        auth.ensureDefaultPassword()
+
+        assertTrue(auth.authenticate("chosen-by-the-parent".toCharArray()))
+        assertFalse(
+            auth.authenticate(AdminAuthenticator.DEFAULT_PASSWORD.toCharArray()),
+            "seeding on every launch would silently reopen the door",
+        )
+    }
+
+    @Test
+    fun `changing the password takes effect and retires the old one`() {
+        auth.ensureDefaultPassword()
+
+        auth.setPassword("newer-secret".toCharArray())
+
+        assertTrue(auth.authenticate("newer-secret".toCharArray()))
+        assertFalse(auth.authenticate(AdminAuthenticator.DEFAULT_PASSWORD.toCharArray()))
+    }
+
+    @Test
+    fun `a reset returns to the factory password rather than to no password`() {
+        auth.setPassword("chosen-by-the-parent".toCharArray())
+
+        auth.resetDestructively()
+
+        assertTrue(
+            auth.isPasswordSet(),
+            "a reset that left the door open would be a child's way in",
+        )
+        assertTrue(auth.authenticate(AdminAuthenticator.DEFAULT_PASSWORD.toCharArray()))
     }
 }

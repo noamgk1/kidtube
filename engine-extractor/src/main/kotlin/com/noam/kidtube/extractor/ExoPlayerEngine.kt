@@ -1,6 +1,8 @@
 package com.noam.kidtube.extractor
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import androidx.annotation.OptIn
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -77,6 +79,22 @@ internal class ExoVideoPlayer(
         )
     }
 
+    /**
+     * ExoPlayer may only be touched from the thread it was built on, and it enforces that
+     * with a hard throw rather than a race.
+     *
+     * The callers here are not all on that thread: the coordinator does its work on an IO
+     * dispatcher because every step around playback reads or writes a file, and the
+     * budget ticker drives pause() from there too. Marshalling inside the player means no
+     * caller has to know, which is the only version of this rule that stays true as
+     * callers are added.
+     */
+    private val handler = Handler(exo.applicationLooper)
+
+    private fun onPlayerThread(block: () -> Unit) {
+        if (Looper.myLooper() == exo.applicationLooper) block() else handler.post(block)
+    }
+
     override fun start(confirmed: ConfirmedTicket, positionMs: Long) {
         val plan = MediaPlanner.plan(confirmed.details.source)
         if (plan == null) {
@@ -104,30 +122,28 @@ internal class ExoVideoPlayer(
             )
         }
 
-        exo.setMediaSource(source)
-        exo.prepare()
-        if (positionMs > 0) exo.seekTo(positionMs)
-        exo.playWhenReady = true
+        onPlayerThread {
+            exo.setMediaSource(source)
+            exo.prepare()
+            if (positionMs > 0) exo.seekTo(positionMs)
+            exo.playWhenReady = true
+        }
         startTicker()
     }
 
-    override fun play() {
-        exo.playWhenReady = true
-    }
+    override fun play() = onPlayerThread { exo.playWhenReady = true }
 
-    override fun pause() {
-        exo.playWhenReady = false
-    }
+    override fun pause() = onPlayerThread { exo.playWhenReady = false }
 
     override fun seekTo(positionMs: Long) {
-        exo.seekTo(positionMs)
+        onPlayerThread { exo.seekTo(positionMs) }
         mutableState.value = mutableState.value.copy(positionMs = positionMs)
     }
 
     override fun release() {
         ticker?.cancel()
         ticker = null
-        exo.release()
+        onPlayerThread { exo.release() }
         mutableState.value = PlayerState()
     }
 
@@ -135,8 +151,11 @@ internal class ExoVideoPlayer(
         ticker?.cancel()
         ticker = scope.launch {
             while (isActive) {
-                mutableState.value =
-                    mutableState.value.copy(positionMs = exo.currentPosition.coerceAtLeast(0))
+                onPlayerThread {
+                    mutableState.value = mutableState.value.copy(
+                        positionMs = exo.currentPosition.coerceAtLeast(0),
+                    )
+                }
                 delay(POSITION_TICK_MS)
             }
         }

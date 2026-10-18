@@ -5,7 +5,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
@@ -41,9 +43,12 @@ import com.noam.kidtube.app.admin.StatusView
 import com.noam.kidtube.app.admin.TimePresenter
 import com.noam.kidtube.app.admin.TimeView
 import com.noam.kidtube.app.kid.CalmErrorCard
+import com.noam.kidtube.app.kid.HomeSection
+import com.noam.kidtube.app.kid.HomeSections
+import com.noam.kidtube.app.kid.KidDestination
 import com.noam.kidtube.app.kid.KidGridLoader
-import com.noam.kidtube.app.kid.KidGridModel
-import com.noam.kidtube.app.kid.KidGridScreen
+import com.noam.kidtube.app.kid.KidShell
+import com.noam.kidtube.app.kid.LibrarySnapshot
 import com.noam.kidtube.app.kid.LockScreen
 import com.noam.kidtube.app.kid.PlaybackCoordinator
 import com.noam.kidtube.app.kid.PlaybackOutcome
@@ -53,6 +58,9 @@ import com.noam.kidtube.app.kid.TickResult
 import com.noam.kidtube.app.kid.TimeLimitPresenter
 import com.noam.kidtube.app.kid.TimeLimitState
 import com.noam.kidtube.app.kid.calmMessageFor
+import com.noam.kidtube.app.kid.resumeMap
+import com.noam.kidtube.app.ui.AppTheme
+import com.noam.kidtube.core.Channel
 import com.noam.kidtube.core.ChannelId
 import com.noam.kidtube.core.DenyReason
 import com.noam.kidtube.core.SyncState
@@ -67,6 +75,19 @@ enum class AppScreen { GRID, PLAYER, ERROR, LOCKED, ADMIN_GATE, ADMIN }
 
 private const val TICK_INTERVAL_MS = 15_000L
 
+/**
+ * One read of the library, shared by all three of the child's destinations.
+ *
+ * Home, channels and search all draw from the same filtered snapshot rather than each
+ * loading their own, so a blocked video cannot linger on one screen after another has
+ * dropped it.
+ */
+private data class KidLibrary(
+    val snapshot: LibrarySnapshot = LibrarySnapshot(emptyList(), emptyList()),
+    val sections: List<HomeSection> = emptyList(),
+    val resumePositions: Map<String, Long> = emptyMap(),
+)
+
 @Composable
 fun AppNavigation(graph: Graph) {
     val scope = rememberCoroutineScope()
@@ -74,7 +95,9 @@ fun AppNavigation(graph: Graph) {
 
     // Null while the first screen is still being decided, which needs a file read.
     var screen by remember { mutableStateOf<AppScreen?>(null) }
-    var selectedChannel by remember { mutableStateOf<ChannelId?>(null) }
+    var destination by remember { mutableStateOf(KidDestination.HOME) }
+    var openChannel by remember { mutableStateOf<Channel?>(null) }
+    var query by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf("") }
     var refreshKey by remember { mutableStateOf(0) }
     var warning by remember { mutableStateOf<TimeLimitState>(TimeLimitState.Plenty) }
@@ -94,6 +117,7 @@ fun AppNavigation(graph: Graph) {
             graph.budgetAccountant,
             graph.settingsStore,
             graph.watchLedger,
+            graph.resumeStore,
             graph.clock,
         )
     }
@@ -167,86 +191,114 @@ fun AppNavigation(graph: Graph) {
         }
     }
 
-    when (screen) {
-        // Deciding. A blank frame for one file read beats a grid that should be locked.
-        null -> Box(modifier = Modifier.fillMaxSize())
+    // The parent's screens get Material's own type scale; the child's get a larger one.
+    AppTheme(forAdmin = screen == AppScreen.ADMIN || screen == AppScreen.ADMIN_GATE) {
+        // The bars are hidden, but a transient swipe brings them back over the content;
+        // this keeps anything tappable out from under them while they are showing.
+        Surface(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
+            when (screen) {
+                // Deciding. A blank frame for one file read beats a grid that should be locked.
+                null -> Box(modifier = Modifier.fillMaxSize())
 
-        AppScreen.GRID -> {
-            val model by produceState(
-                initialValue = KidGridModel(emptyList(), selectedChannel, emptyList()),
-                selectedChannel,
-                refreshKey,
-            ) {
-                value = withContext(Dispatchers.IO) { gridLoader.load(selectedChannel) }
-            }
-            KidGridScreen(
-                model = model,
-                onSelectChannel = { selectedChannel = it },
-                onPlay = { video ->
-                    scope.launch {
-                        when (val outcome = coordinator.play(video)) {
-                            is PlaybackOutcome.Started -> screen = AppScreen.PLAYER
-                            // Another tap is already being handled; say nothing.
-                            is PlaybackOutcome.Busy -> Unit
-                            is PlaybackOutcome.Refused ->
-                                if (outcome.reason == DenyReason.BUDGET_EXHAUSTED) {
-                                    warning = TimeLimitState.Locked
-                                    screen = AppScreen.LOCKED
-                                } else {
-                                    errorMessage = calmMessageFor(outcome)
-                                    screen = AppScreen.ERROR
-                                }
-                            else -> {
-                                errorMessage = calmMessageFor(outcome)
-                                screen = AppScreen.ERROR
-                            }
+                AppScreen.GRID -> {
+                    // Null until the first read finishes. Starting from an empty library
+                    // instead flashed "there are no videos yet" on every cold start,
+                    // which is a lie told to the child for as long as the files take to
+                    // read.
+                    val library by produceState<KidLibrary?>(null, refreshKey) {
+                        value = withContext(Dispatchers.IO) {
+                            val snapshot = gridLoader.snapshot()
+                            val resume = graph.resumeStore.continueWatching()
+                            KidLibrary(
+                                snapshot = snapshot,
+                                sections = HomeSections.build(snapshot, resume),
+                                resumePositions = resumeMap(resume),
+                            )
                         }
                     }
-                },
-                onAdminLongPress = {
-                    gateReturnsTo = AppScreen.GRID
-                    screen = AppScreen.ADMIN_GATE
-                },
-            )
-        }
+                    val loaded = library
+                    if (loaded == null) {
+                        Box(modifier = Modifier.fillMaxSize())
+                        return@Surface
+                    }
 
-        AppScreen.PLAYER -> PlayerScreen(
-            engine = graph.playerEngine,
-            controller = controller,
-            warning = warning,
-            onBack = {
-                scope.launch {
-                    coordinator.onEnded(completed = false)
-                    controller.pause()
-                    refreshKey++
-                    screen = AppScreen.GRID
+                    KidShell(
+                        destination = destination,
+                        onDestinationChange = { destination = it },
+                        snapshot = loaded.snapshot,
+                        sections = loaded.sections,
+                        resumePositions = loaded.resumePositions,
+                        openChannel = openChannel,
+                        onOpenChannel = { openChannel = it },
+                        query = query,
+                        onQueryChange = { query = it },
+                        onPlay = { video ->
+                            scope.launch {
+                                when (val outcome = coordinator.play(video)) {
+                                    is PlaybackOutcome.Started -> screen = AppScreen.PLAYER
+                                    // Another tap is already being handled; say nothing.
+                                    is PlaybackOutcome.Busy -> Unit
+                                    is PlaybackOutcome.Refused ->
+                                        if (outcome.reason == DenyReason.BUDGET_EXHAUSTED) {
+                                            warning = TimeLimitState.Locked
+                                            screen = AppScreen.LOCKED
+                                        } else {
+                                            errorMessage = calmMessageFor(outcome)
+                                            screen = AppScreen.ERROR
+                                        }
+                                    else -> {
+                                        errorMessage = calmMessageFor(outcome)
+                                        screen = AppScreen.ERROR
+                                    }
+                                }
+                            }
+                        },
+                        onAdminHold = {
+                            gateReturnsTo = AppScreen.GRID
+                            screen = AppScreen.ADMIN_GATE
+                        },
+                    )
                 }
-            },
-        )
 
-        AppScreen.ERROR -> CalmErrorCard(errorMessage) { screen = AppScreen.GRID }
+                AppScreen.PLAYER -> PlayerScreen(
+                    engine = graph.playerEngine,
+                    controller = controller,
+                    warning = warning,
+                    onBack = {
+                        scope.launch {
+                            coordinator.onEnded(completed = false)
+                            controller.pause()
+                            refreshKey++
+                            screen = AppScreen.GRID
+                        }
+                    },
+                )
 
-        AppScreen.LOCKED -> LockScreen(
-            onAdminLongPress = {
-                // Returning here on cancel is what makes this a lock rather than advice.
-                gateReturnsTo = AppScreen.LOCKED
-                screen = AppScreen.ADMIN_GATE
-            },
-        )
+                AppScreen.ERROR -> CalmErrorCard(errorMessage) { screen = AppScreen.GRID }
 
-        AppScreen.ADMIN_GATE -> AdminGate(
-            authenticator = authenticator,
-            onUnlocked = { screen = AppScreen.ADMIN },
-            onCancel = { screen = gateReturnsTo },
-        )
+                AppScreen.LOCKED -> LockScreen(
+                    onAdminLongPress = {
+                        // Returning here on cancel is what makes this a lock rather than advice.
+                        gateReturnsTo = AppScreen.LOCKED
+                        screen = AppScreen.ADMIN_GATE
+                    },
+                )
 
-        AppScreen.ADMIN -> AdminHost(graph, authenticator) {
-            scope.launch {
-                refreshKey++
-                val remaining = withContext(Dispatchers.IO) { remainingSecondsToday(graph) }
-                warning = TimeLimitPresenter.stateFor(remaining)
-                // A parent who granted bonus minutes expects the child back on the grid.
-                screen = if (remaining <= 0) AppScreen.LOCKED else AppScreen.GRID
+                AppScreen.ADMIN_GATE -> AdminGate(
+                    authenticator = authenticator,
+                    onUnlocked = { screen = AppScreen.ADMIN },
+                    onCancel = { screen = gateReturnsTo },
+                )
+
+                AppScreen.ADMIN -> AdminHost(graph, authenticator) {
+                    scope.launch {
+                        refreshKey++
+                        val remaining = withContext(Dispatchers.IO) { remainingSecondsToday(graph) }
+                        warning = TimeLimitPresenter.stateFor(remaining)
+                        // A parent who granted bonus minutes expects the child back on the grid.
+                        screen = if (remaining <= 0) AppScreen.LOCKED else AppScreen.GRID
+                    }
+                }
             }
         }
     }
@@ -272,6 +324,14 @@ private fun AdminHost(graph: Graph, authenticator: AdminAuthenticator, onExit: (
     var singleVideoTitle by remember { mutableStateOf("") }
     var version by remember { mutableStateOf(0) }
     var openChannel by remember { mutableStateOf<ChannelId?>(null) }
+
+    // Drives the nudge to stop using the factory password. A file read and a hash, so it
+    // is computed off the main thread and refreshed whenever the admin screen changes.
+    val usingDefaultPassword by produceState(false, version) {
+        value = withContext(Dispatchers.IO) {
+            authenticator.authenticate(AdminAuthenticator.DEFAULT_PASSWORD.toCharArray())
+        }
+    }
 
     val addFlow = remember { AddFlow(graph.contentSource, graph.whitelistStore, graph.catalogSync) }
     val catalogPresenter = remember { CatalogPresenter(graph.whitelistStore, graph.catalogStore) }
@@ -336,7 +396,7 @@ private fun AdminHost(graph: Graph, authenticator: AdminAuthenticator, onExit: (
     Scaffold(
         topBar = {
             TabRow(selectedTabIndex = tab) {
-                listOf("תכנים", "זמן", "היסטוריה", "מצב", "יציאה").forEachIndexed { index, label ->
+                listOf("תכנים", "זמן", "היסטוריה", "הגדרות", "יציאה").forEachIndexed { index, label ->
                     Tab(
                         selected = tab == index,
                         onClick = { if (index == 4) onExit() else tab = index },
@@ -497,6 +557,16 @@ private fun AdminHost(graph: Graph, authenticator: AdminAuthenticator, onExit: (
                             onExit()
                         }
                     },
+                    onChangePassword = { chosen ->
+                        scope.launch {
+                            // Hashing is 310k PBKDF2 rounds: never on the main thread.
+                            withContext(Dispatchers.IO) {
+                                authenticator.setPassword(chosen.toCharArray())
+                            }
+                            version++
+                        }
+                    },
+                    usingDefaultPassword = usingDefaultPassword,
                     modifier = content,
                 )
             }

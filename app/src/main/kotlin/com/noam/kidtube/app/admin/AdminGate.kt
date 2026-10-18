@@ -29,17 +29,15 @@ fun AdminGate(
 ) {
     var password by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
-    val firstRun = remember { !authenticator.isPasswordSet() }
 
     Column(
         modifier = Modifier.fillMaxSize().padding(32.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(
-            text = if (firstRun) "בחר סיסמה לממשק ההורים" else "ממשק הורים",
-            style = MaterialTheme.typography.headlineSmall,
-        )
+        // There is no "choose a password" branch any more: the app ships with one set,
+        // so this screen only ever asks.
+        Text(text = "ממשק הורים", style = MaterialTheme.typography.headlineSmall)
 
         OutlinedTextField(
             value = password,
@@ -62,14 +60,7 @@ fun AdminGate(
 
         Button(
             onClick = {
-                if (firstRun) {
-                    if (password.length < 4) {
-                        error = "סיסמה קצרה מדי"
-                    } else {
-                        authenticator.setPassword(password.toCharArray())
-                        onUnlocked()
-                    }
-                } else if (authenticator.authenticate(password.toCharArray())) {
+                if (authenticator.authenticate(password.toCharArray())) {
                     onUnlocked()
                 } else {
                     error = "סיסמה שגויה"
@@ -77,7 +68,7 @@ fun AdminGate(
             },
             modifier = Modifier.padding(top = 16.dp),
         ) {
-            Text(if (firstRun) "שמור" else "כניסה")
+            Text("כניסה")
         }
 
         TextButton(onClick = onCancel, modifier = Modifier.padding(top = 8.dp)) {

@@ -1,5 +1,6 @@
 package com.noam.kidtube.app.kid
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -46,7 +47,10 @@ fun PlayerScreen(
 ) {
     val state by controller.state.collectAsStateWithLifecycle()
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    // Black behind the video, not the app's warm background: a 16:9 video on a 16:10
+    // tablet always leaves bars, and bright ones beside a dark scene are what tires a
+    // child's eyes.
+    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         engine.Surface(controller, Modifier.fillMaxSize())
 
         // The child meets the daily limit exactly twice: here, gently, and then at the

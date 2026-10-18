@@ -10,6 +10,7 @@ import com.noam.kidtube.core.VideoId
 import com.noam.kidtube.core.VideoRef
 import com.noam.kidtube.core.store.BudgetStore
 import com.noam.kidtube.core.store.FileStore
+import com.noam.kidtube.core.store.ResumeStore
 import com.noam.kidtube.core.store.SettingsStore
 import com.noam.kidtube.core.store.WatchLedger
 import com.noam.kidtube.core.store.WhitelistStore
@@ -42,6 +43,7 @@ class PlaybackCoordinatorStateTest {
     private val budgetStore = BudgetStore(files)
     private val settingsStore = SettingsStore(files)
     private val ledger = WatchLedger(files, clock)
+    private val resumeStore = ResumeStore(files, clock)
     private val resolver = FakePlaybackResolver()
     private val player = FakeVideoPlayer()
 
@@ -57,6 +59,7 @@ class PlaybackCoordinatorStateTest {
         accountant = BudgetAccountant(clock),
         settingsStore = settingsStore,
         ledger = ledger,
+        resumeStore = resumeStore,
         clock = clock,
     )
 

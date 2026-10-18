@@ -9,9 +9,16 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.noam.kidtube.engine.EngineHealth
 
@@ -22,12 +29,23 @@ fun AdminStatusScreen(
     onExport: () -> Unit,
     onImport: () -> Unit,
     onResetEverything: () -> Unit,
+    onChangePassword: (String) -> Unit,
+    usingDefaultPassword: Boolean,
     modifier: Modifier = Modifier,
 ) {
     Column(
         modifier = modifier.fillMaxSize().padding(24.dp).verticalScroll(rememberScrollState()),
     ) {
-        Text("מצב המנוע", style = MaterialTheme.typography.titleLarge)
+        PasswordSection(
+            usingDefaultPassword = usingDefaultPassword,
+            onChangePassword = onChangePassword,
+        )
+
+        Text(
+            text = "מצב המנוע",
+            style = MaterialTheme.typography.titleLarge,
+            modifier = Modifier.padding(top = 32.dp),
+        )
         when (val health = view.engineHealth) {
             is EngineHealth.Healthy -> Text("תקין")
 
@@ -92,7 +110,62 @@ fun AdminStatusScreen(
         }
 
         Button(onClick = onResetEverything, modifier = Modifier.padding(top = 32.dp)) {
-            Text("אפס סיסמה — מוחק גם את הרשימה הלבנה ואת ההיסטוריה")
+            Text("שכחתי סיסמה — אפס הכל, כולל הרשימה הלבנה וההיסטוריה")
         }
+    }
+}
+
+/**
+ * Changing the admin password.
+ *
+ * The app ships with a factory password rather than asking the first person who finds
+ * the admin hold to choose one, so this is also the nudge to stop using it.
+ */
+@Composable
+private fun PasswordSection(
+    usingDefaultPassword: Boolean,
+    onChangePassword: (String) -> Unit,
+) {
+    var chosen by remember { mutableStateOf("") }
+    var message by remember { mutableStateOf<String?>(null) }
+
+    Text("סיסמת ההורים", style = MaterialTheme.typography.titleLarge)
+
+    if (usingDefaultPassword) {
+        Text(
+            text = "הסיסמה היא עדיין סיסמת ברירת המחדל. כדאי לשנות אותה.",
+            color = MaterialTheme.colorScheme.error,
+            modifier = Modifier.padding(top = 4.dp),
+        )
+    }
+
+    Row(modifier = Modifier.padding(top = 12.dp)) {
+        OutlinedTextField(
+            value = chosen,
+            onValueChange = { chosen = it; message = null },
+            label = { Text("סיסמה חדשה") },
+            visualTransformation = PasswordVisualTransformation(),
+            singleLine = true,
+            modifier = Modifier.testTag("new-password"),
+        )
+        Button(
+            onClick = {
+                if (chosen.length < AdminAuthenticator.MIN_PASSWORD_LENGTH) {
+                    message = "סיסמה קצרה מדי"
+                } else {
+                    onChangePassword(chosen)
+                    chosen = ""
+                    message = "הסיסמה שונתה"
+                }
+            },
+            modifier = Modifier.padding(start = 12.dp, top = 8.dp),
+        ) {
+            Text("שנה סיסמה")
+        }
+    }
+
+    val note = message
+    if (note != null) {
+        Text(note, modifier = Modifier.padding(top = 8.dp))
     }
 }

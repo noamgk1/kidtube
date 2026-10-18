@@ -117,4 +117,29 @@ class HomeSectionsTest {
         val sections = HomeSections.build(big, emptyList())
         assertTrue(sections.all { it.videos.size <= HomeSections.ROW_LIMIT })
     }
+
+    // A single approved channel means the newest row and that channel's row hold exactly
+    // the same videos, and the home screen shows every tile twice.
+
+    @Test
+    fun `one channel gets no row of its own`() {
+        val oneChannel = LibrarySnapshot(
+            channels = listOf(Channel(kids, "Kids", null, "f1", 1L)),
+            videos = listOf(video(kids, "k1", 900), video(kids, "k2", 700)),
+        )
+
+        val kinds = HomeSections.build(oneChannel, emptyList()).map { it.kind }
+
+        assertEquals(listOf(SectionKind.NEWEST), kinds)
+    }
+
+    @Test
+    fun `two channels each get a row, because now the grouping says something`() {
+        val kinds = HomeSections.build(snapshot, emptyList()).map { it.kind }
+
+        assertEquals(
+            listOf(SectionKind.NEWEST, SectionKind.CHANNEL, SectionKind.CHANNEL),
+            kinds,
+        )
+    }
 }

@@ -9,13 +9,20 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.noam.kidtube.core.BidiText
 import com.noam.kidtube.core.VideoId
+import com.noam.kidtube.core.VideoSearch
 
 /**
  * The second of the two places the blocklist is reachable from (the other is the history
@@ -33,12 +40,32 @@ fun ChannelCatalogScreen(
     Column(modifier = modifier.fillMaxSize().padding(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             TextButton(onClick = onBack) { Text("חזרה") }
-            Text(channelTitle, style = MaterialTheme.typography.titleLarge)
+            Text(BidiText.isolate(channelTitle), style = MaterialTheme.typography.titleLarge)
         }
         Text(rows.count { it.blocked }.toString() + " חסומים מתוך " + rows.size)
 
+        // A deeply synced channel runs to hundreds of rows, which is more than anyone can
+        // scroll through to find the one video they want to block.
+        var filter by remember { mutableStateOf("") }
+        OutlinedTextField(
+            value = filter,
+            onValueChange = { filter = it },
+            singleLine = true,
+            label = { Text("סינון לפי שם") },
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+        )
+
+        val shown = rows.filter { VideoSearch.matches(it.video.title, filter) }
+        if (shown.isEmpty() && filter.isNotBlank()) {
+            Text(
+                text = "אין סרטון בשם הזה בערוץ",
+                color = MaterialTheme.colorScheme.outline,
+                modifier = Modifier.padding(top = 16.dp),
+            )
+        }
+
         LazyColumn(modifier = Modifier.fillMaxSize().padding(top = 12.dp)) {
-            items(rows, key = { it.video.id.value }) { row ->
+            items(shown, key = { it.video.id.value }) { row ->
                 Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -46,7 +73,7 @@ fun ChannelCatalogScreen(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = row.video.title,
+                                text = BidiText.isolate(row.video.title),
                                 style = MaterialTheme.typography.titleMedium,
                                 color = if (row.blocked) {
                                     MaterialTheme.colorScheme.outline

@@ -1,6 +1,7 @@
 package com.noam.kidtube.app
 
 import android.content.Context
+import com.noam.kidtube.app.admin.AdminAuthenticator
 import com.noam.kidtube.app.sync.CatalogSync
 import com.noam.kidtube.core.BudgetAccountant
 import com.noam.kidtube.core.Clock
@@ -9,6 +10,7 @@ import com.noam.kidtube.core.store.BackupCodec
 import com.noam.kidtube.core.store.BudgetStore
 import com.noam.kidtube.core.store.CatalogStore
 import com.noam.kidtube.core.store.FileStore
+import com.noam.kidtube.core.store.ResumeStore
 import com.noam.kidtube.core.store.SettingsStore
 import com.noam.kidtube.core.store.SyncStateStore
 import com.noam.kidtube.core.store.WatchLedger
@@ -34,6 +36,7 @@ class Graph(
     val settingsStore: SettingsStore,
     val budgetStore: BudgetStore,
     val watchLedger: WatchLedger,
+    val resumeStore: ResumeStore,
     val backupCodec: BackupCodec,
     val budgetAccountant: BudgetAccountant,
     val contentSource: ContentSource,
@@ -74,6 +77,13 @@ object Wiring {
         val settingsStore = SettingsStore(files)
         val budgetStore = BudgetStore(files)
         val watchLedger = WatchLedger(files, clock)
+        val resumeStore = ResumeStore(files, clock)
+
+        // The door ships locked. Only a first run pays for the hash, and paying for it
+        // here rather than in the background closes the window in which the admin screen
+        // could be reached before the password exists.
+        AdminAuthenticator(whitelistStore = whitelistStore, catalogStore = catalogStore,
+            ledger = watchLedger, settingsStore = settingsStore).ensureDefaultPassword()
 
         val engine = ExtractorEngine.create(appContext, clock)
 
@@ -86,6 +96,7 @@ object Wiring {
             settingsStore = settingsStore,
             budgetStore = budgetStore,
             watchLedger = watchLedger,
+            resumeStore = resumeStore,
             backupCodec = BackupCodec(whitelistStore, catalogStore, settingsStore, watchLedger),
             budgetAccountant = BudgetAccountant(clock),
             contentSource = engine.contentSource,

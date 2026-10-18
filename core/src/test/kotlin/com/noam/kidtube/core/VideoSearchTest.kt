@@ -1,6 +1,7 @@
 package com.noam.kidtube.core
 
 import kotlin.test.Test
+import kotlin.test.assertFalse
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
@@ -127,5 +128,26 @@ class VideoSearchTest {
         // typing the stem should still reach it.
         val items = listOf(video("f1", "ציפורים בחלון"))
         assertEquals(1, VideoSearch.search(items, "ציפור").size)
+    }
+
+    // The parent's channel catalog filters with `matches` rather than `search`: a vetting
+    // list that silently stopped at sixty rows would hide exactly the video being hunted.
+
+    @Test
+    fun `matches needs every term`() {
+        assertTrue(VideoSearch.matches("Baby Shark Dance", "baby shark"))
+        assertFalse(VideoSearch.matches("Baby Shark Dance", "baby whale"))
+    }
+
+    @Test
+    fun `matches folds Hebrew the same way search does`() {
+        assertTrue(VideoSearch.matches("שירים לילדים", "לילדים"))
+        assertTrue(VideoSearch.matches("מילים", "מילימ"))
+    }
+
+    @Test
+    fun `an empty query matches everything, so an empty filter hides nothing`() {
+        assertTrue(VideoSearch.matches("anything at all", ""))
+        assertTrue(VideoSearch.matches("anything at all", "   "))
     }
 }

@@ -13,6 +13,7 @@ import com.noam.kidtube.core.VideoRef
 import com.noam.kidtube.core.WatchEntry
 import com.noam.kidtube.core.WatchSession
 import com.noam.kidtube.core.store.BudgetStore
+import com.noam.kidtube.core.store.ResumeStore
 import com.noam.kidtube.core.store.SettingsStore
 import com.noam.kidtube.core.store.WatchLedger
 import com.noam.kidtube.core.store.WhitelistStore
@@ -73,6 +74,7 @@ class PlaybackCoordinator(
     private val accountant: BudgetAccountant,
     private val settingsStore: SettingsStore,
     private val ledger: WatchLedger,
+    private val resumeStore: ResumeStore,
     private val clock: Clock,
     /**
      * Where the store reads and writes happen. Every method below touches files, and the
@@ -97,6 +99,16 @@ class PlaybackCoordinator(
     /** Only time spent actually PLAYING is charged; pauses and buffering are not. */
     private var playingSinceRealtimeMs: Long? = null
     private var accumulatedPlayedMs: Long = 0
+
+    /**
+     * The last position the player reported, remembered rather than asked for.
+     *
+     * A player that has just failed is not a reliable source of its own position, and the
+     * back button closes the viewing after the surface is already going away, so the
+     * resume point has to come from what was last observed.
+     */
+    private var lastPositionMs: Long = 0
+    private var lastDurationMs: Long = 0
 
     suspend fun play(video: VideoRef): PlaybackOutcome = mutex.withLock {
         if (starting || session != null) return@withLock PlaybackOutcome.Busy
@@ -146,7 +158,12 @@ class PlaybackCoordinator(
         playingSinceRealtimeMs = null
         accumulatedPlayedMs = 0
 
-        player.start(confirmed, positionMs = 0)
+        // Where the child left off last time, if that was far enough in to be worth it.
+        val resumeFrom = resumeStore.positionFor(video.id)
+        lastPositionMs = resumeFrom
+        lastDurationMs = details.durationSeconds * 1_000L
+
+        player.start(confirmed, positionMs = resumeFrom)
         return PlaybackOutcome.Started(details)
     }
 
@@ -161,6 +178,9 @@ class PlaybackCoordinator(
 
     private suspend fun onPlayerStateLocked(state: PlayerState): PlayerEvent {
         if (session == null) return PlayerEvent.Nothing
+
+        if (state.positionMs > 0) lastPositionMs = state.positionMs
+        if (state.durationMs > 0) lastDurationMs = state.durationMs
 
         when (state.phase) {
             PlaybackPhase.PLAYING -> {
@@ -213,6 +233,9 @@ class PlaybackCoordinator(
         val (advanced, updated) = accountant.charge(openSession, stored, playedSeconds())
         session = advanced
         budgetStore.save(updated)
+
+        // Written every tick so a battery pull or a crash costs at most one interval.
+        resumeStore.save(openSession.videoId, lastPositionMs, lastDurationMs)
 
         val limitSeconds = settingsStore.load().dailyLimitMinutes * 60
         val remaining = accountant.remainingSeconds(updated, limitSeconds)
@@ -276,6 +299,13 @@ class PlaybackCoordinator(
         val openSession = session ?: return
         stopCountingPlayTime()
 
+        if (completed) {
+            // Watched to the end: offering to resume it would replay the credits.
+            resumeStore.clear(openSession.videoId)
+        } else {
+            resumeStore.save(openSession.videoId, lastPositionMs, lastDurationMs)
+        }
+
         val watched = playedSeconds()
         val stored = budgetStore.load(openSession.budgetDateIso)
         val (_, reconciled) = accountant.charge(openSession, stored, watched)
@@ -303,6 +333,8 @@ class PlaybackCoordinator(
         retried = false
         playingSinceRealtimeMs = null
         accumulatedPlayedMs = 0
+        lastPositionMs = 0
+        lastDurationMs = 0
     }
 
     private fun stopCountingPlayTime() {

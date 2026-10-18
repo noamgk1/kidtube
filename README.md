@@ -75,9 +75,10 @@ sideload.keyPassword=...
 
 ### First run
 
-The grid is empty, because nothing is approved yet. **Hold the "הכל" avatar for three
-seconds** to reach the parent screen and set the password — see the residual risk note
-below before handing the tablet over.
+The home screen is empty, because nothing is approved yet. **Hold the bottom of the
+navigation rail for three seconds** to reach the parent screen. The password is
+`karmon1234` until you change it, which you can do under **הגדרות** in the parent screen
+— and should, before handing the tablet over.
 
 ## Building
 
@@ -192,14 +193,17 @@ instantly and still works on a day when the engine is broken.
 
 ## One residual risk worth knowing
 
-On a **fresh or freshly-reset device the parent password is not yet set**, and the admin
-door cannot tell a parent from a child: whoever holds it down for three seconds first
-gets to choose the password. There is no way around this without an account system, which
-this app deliberately does not have.
+The app ships with the password already set to `karmon1234`, and a destructive reset
+restores that same password rather than clearing it. That closes the hole a first-run
+prompt leaves open — on a device where no password has been chosen yet, the admin door
+cannot tell a parent from a child, and whoever holds it first would get to choose.
 
-**Set the password before handing the tablet over.** After that the door is a
-three-second hold on one fixed, unmarked spot with no ripple and no affordance, and the
-only reset is destructive.
+What is left is that **the factory password is in this file**. Anyone who reads it, or
+who has used the app before, knows it. It buys a parent the time to change it rather
+than security on its own, so the parent screen says so until you do. **Change it under
+הגדרות before handing the tablet over.** After that the door is a three-second hold on
+one fixed, unmarked spot with no ripple and no affordance, and the only reset is
+destructive.
 
 ## Licence
 

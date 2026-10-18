@@ -18,6 +18,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.noam.kidtube.app.ui.formatCount
+import com.noam.kidtube.core.BidiText
 import com.noam.kidtube.core.Channel
 import com.noam.kidtube.core.ChannelId
 import com.noam.kidtube.core.SyncState
@@ -101,7 +103,7 @@ fun AdminContentScreen(
             ) {
                 Column(Modifier.padding(16.dp)) {
                     Text(preview.channel.title, style = MaterialTheme.typography.titleLarge)
-                    Text(preview.channel.subscriberCount.toString() + " עוקבים")
+                    Text(formatCount(preview.channel.subscriberCount) + " עוקבים")
                     if (preview.alreadyApproved) {
                         Text("הערוץ הזה כבר מאושר", color = MaterialTheme.colorScheme.error)
                     } else {
@@ -118,7 +120,10 @@ fun AdminContentScreen(
                 val state = syncStates[channel.id.value]
                 Card(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
                     Column(Modifier.padding(16.dp)) {
-                        Text(channel.title, style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            text = BidiText.isolate(channel.title),
+                            style = MaterialTheme.typography.titleMedium,
+                        )
                         if (state != null && !state.complete) {
                             Text(
                                 "בסנכרון: " + state.pagesDone + " עמודים, " +

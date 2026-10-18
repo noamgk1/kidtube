@@ -51,6 +51,20 @@ object VideoSearch {
     }
 
     /**
+     * Does [title] match every term in [query]?
+     *
+     * The same folding as [search], but with no cap and no ranking. The parent's channel
+     * catalog filters with this: a vetting list that silently stopped at sixty rows would
+     * hide exactly the video being hunted for. An empty query matches everything, so an
+     * empty filter box hides nothing.
+     */
+    fun matches(title: String, query: String): Boolean {
+        val terms = normalise(query).split(' ').filter { it.isNotBlank() }
+        if (terms.isEmpty()) return true
+        return scoreOf(normalise(title), terms) != null
+    }
+
+    /**
      * Lower is better. Every term must appear; the result is ranked by the best
      * position any term achieves, so a title that opens with the query comes first.
      */

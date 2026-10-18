@@ -15,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.noam.kidtube.core.BidiText
 import com.noam.kidtube.core.VideoId
 
 @Composable
@@ -32,7 +33,10 @@ fun AdminHistoryScreen(
                     modifier = Modifier.padding(16.dp).fillMaxWidth(),
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(row.title, style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            text = BidiText.isolate(row.title),
+                            style = MaterialTheme.typography.titleMedium,
+                        )
                         Text(
                             row.plays.toString() + " צפיות · " +
                                 (row.totalSeconds / 60) + " דקות סך הכול",
