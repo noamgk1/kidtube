@@ -172,12 +172,23 @@ class PoTokenSessionTest {
     }
 
     @Test
-    fun `only the web client is served because BotGuard mints web attestations`() {
+    fun `every client is served, because v0_26_5 asks only the android one`() {
+        // Measured by the verification gate on 2026-10-18: web-only meant BotGuard
+        // never ran, because the library never asks the web client.
         val s = session()
         assertNotNull(s.getWebClientPoToken("v"))
-        assertNull(s.getWebEmbedClientPoToken("v"))
-        assertNull(s.getAndroidClientPoToken("v"))
-        assertNull(s.getIosClientPoToken("v"))
+        assertNotNull(s.getWebEmbedClientPoToken("v"))
+        assertNotNull(s.getAndroidClientPoToken("v"))
+        assertNotNull(s.getIosClientPoToken("v"))
+    }
+
+    @Test
+    fun `serving several clients for one video still mints only one token`() {
+        val s = session()
+        s.getWebClientPoToken("v")
+        s.getAndroidClientPoToken("v")
+        s.getIosClientPoToken("v")
+        assertEquals(1, generator.tokenCalls, "the per-video cache must cover every client")
     }
 
     @Test

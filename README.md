@@ -15,32 +15,38 @@ the screen.* That is enforced structurally rather than by care — see
 
 | | |
 |---|---|
-| Unit tests | 312, all passing |
+| Unit tests | 313, all passing |
+| Instrumented tests | 12, all passing on an Android 15 emulator |
 | `assembleDebug` | succeeds |
-| `assembleDebugAndroidTest` | succeeds |
-| Instrumented tests | **written but never run** — no device was available |
 
-### What still needs a device
+### The verification gate has run, and the answer is the adverse one
 
-Five test classes are written, compile, and have never executed. The first one is a
-decision point, not a formality:
+**YouTube's 360p cap on *Made for Kids* content holds even with a real proof-of-origin
+token.** Measured on 18 October 2026 against NewPipeExtractor v0.26.5: a genuine
+BotGuard-minted token was served to the client that asks for it, and kids content still
+returned a single muxed 360p stream, while the control video returned full adaptive
+2160p in the same run.
 
-1. **`PoTokenGateTest`** — the verification gate. Answers whether a real proof-of-origin
-   token lifts YouTube's 360p cap on *Made for Kids* content. The whole quality case for
-   this engine rests on it. See [`docs/notes/notes/gate-result.md`](docs/notes/notes/gate-result.md)
-   for the command and the decision rule.
-2. `NetworkContractTest` — the quarantined YouTube contract suite plus its canary.
-   See [`docs/notes/notes/network-suite.md`](docs/notes/notes/network-suite.md).
-3. `KidGridScreenTest`, `LockScreenTest`, `AdminGateTest` — the two UI invariants:
-   no path to a blocked video, and no way past the password.
+So the expensive half of the engine choice bought nothing on this library version, and
+there is a real decision waiting — accept 360p, or bring the official-API engine
+forward. **Read [`docs/notes/notes/gate-result.md`](docs/notes/notes/gate-result.md)**;
+it has the raw output, the mistake the first run nearly led us into, and the three
+options.
 
 ```bash
-# Run the gate first and record its answer.
-./gradlew :engine-extractor:connectedDebugAndroidTest --tests '*PoTokenGateTest*' --info
+# connectedDebugAndroidTest has no --tests option; filter with the runner argument.
+./gradlew :engine-extractor:connectedDebugAndroidTest   -Pandroid.testInstrumentationRunnerArguments.class=com.noam.kidtube.extractor.PoTokenGateTest
 
-# Then the rest (the network suite stays opt-in).
-./gradlew connectedDebugAndroidTest
+# Everything, with the network suite opted in.
+./gradlew :app:connectedDebugAndroidTest
 ./gradlew :engine-extractor:connectedDebugAndroidTest -PnetworkTest=true
+```
+
+The gate and the canary print their findings with `println`, which on Android goes to
+logcat rather than to Gradle's console:
+
+```bash
+adb logcat -d -s System.out | grep -E "GATE/|CANARY/"
 ```
 
 ## Building

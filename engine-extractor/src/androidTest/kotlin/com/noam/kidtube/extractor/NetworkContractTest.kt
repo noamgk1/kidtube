@@ -90,13 +90,14 @@ class NetworkContractTest {
     /**
      * THE CANARY. Freezes the verdict of the PO token gate.
      *
-     * [EXPECTED_ADAPTIVE] must be set from docs/notes/notes/gate-result.md once the
-     * gate has actually been run on a device. Until then this test prints the real shape
-     * and its assertion is a hypothesis, not a baseline — so read the printed line on the
-     * first run rather than trusting the pass or fail.
+     * Measured, not assumed. The gate ran on 2026-10-18 against NewPipeExtractor
+     * v0.26.5 on an Android 15 emulator, with a real BotGuard token served to the
+     * client that actually asks for it (android). Made-for-Kids content still came
+     * back as a single muxed 360p stream with no separate audio track, so adaptive
+     * is false. The control video returned full adaptive 2160p in the same run.
      *
-     * When it later flips, YouTube changed its Made-for-Kids policy in one direction or
-     * the other, and design spec section 2 needs revisiting.
+     * If this flips, YouTube changed its Made-for-Kids policy and design spec
+     * section 2 is worth revisiting.
      */
     @Test
     fun madeForKidsContentStillReturnsTheShapeTheGateMeasured() = runBlocking {
@@ -127,11 +128,7 @@ class NetworkContractTest {
     }
 
     private companion object {
-        /**
-         * true if the gate found that a PO token lifts the 360p cap (adaptive video plus a
-         * separate audio track); false if the single muxed 360p stream persists.
-         * UNVERIFIED until the gate runs — see docs/notes/notes/gate-result.md.
-         */
-        const val EXPECTED_ADAPTIVE = true
+        /** Measured by the gate on 2026-10-18; see the canary's KDoc above. */
+        const val EXPECTED_ADAPTIVE = false
     }
 }

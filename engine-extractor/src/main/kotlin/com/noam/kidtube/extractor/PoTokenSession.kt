@@ -45,18 +45,27 @@ internal class PoTokenSession(
     val health: StateFlow<EngineHealth> = mutableHealth.asStateFlow()
 
     /**
-     * Only the web client is served. BotGuard mints an attestation for the synthetic web
-     * session this class creates; handing that token to the android or ios clients would
-     * be presenting the wrong credential, so those correctly get nothing.
+     * Every client is served the same BotGuard attestation.
+     *
+     * This was web-only at first, on the reasoning that a web attestation is the wrong
+     * credential for the android client. The verification gate measured otherwise on
+     * 2026-10-18: NewPipeExtractor v0.26.5 asks *only* the android client
+     * (`calls=android=token,android=token`), so web-only meant the WebView and BotGuard
+     * never ran at all. Serving the asking client was measured as neutral — identical
+     * stream shapes with and without — and it is the only way the pipeline is reachable,
+     * so it stays reachable rather than being dead weight.
      */
     override fun getWebClientPoToken(videoId: String): PoTokenResult? =
         runBlocking { resultFor(videoId) }
 
-    override fun getWebEmbedClientPoToken(videoId: String): PoTokenResult? = null
+    override fun getWebEmbedClientPoToken(videoId: String): PoTokenResult? =
+        getWebClientPoToken(videoId)
 
-    override fun getAndroidClientPoToken(videoId: String): PoTokenResult? = null
+    override fun getAndroidClientPoToken(videoId: String): PoTokenResult? =
+        getWebClientPoToken(videoId)
 
-    override fun getIosClientPoToken(videoId: String): PoTokenResult? = null
+    override fun getIosClientPoToken(videoId: String): PoTokenResult? =
+        getWebClientPoToken(videoId)
 
     fun release() {
         generator.release()

@@ -5,8 +5,52 @@ import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Test
 import org.schabi.newpipe.extractor.ServiceList
+import org.schabi.newpipe.extractor.services.youtube.PoTokenProvider
+import org.schabi.newpipe.extractor.services.youtube.PoTokenResult
 import org.schabi.newpipe.extractor.stream.StreamInfo
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.assertTrue
+
+/**
+ * Counts what the library actually asks for. EngineHealth.Healthy is also the initial
+ * value, so health alone cannot tell "a token was minted" from "a token was never
+ * requested" - and that distinction is the whole meaning of the verdict below.
+ */
+private class CountingPoTokenProvider(
+    private val delegate: PoTokenProvider,
+    /** When true, every client is served the web attestation rather than only the web one. */
+    private val serveAllClients: Boolean = false,
+) : PoTokenProvider {
+    val calls = java.util.Collections.synchronizedList(mutableListOf<String>())
+    val served = AtomicInteger()
+
+    private fun record(client: String, token: PoTokenResult?): PoTokenResult? {
+        calls.add(client + "=" + (if (token == null) "null" else "token"))
+        if (token != null) served.incrementAndGet()
+        return token
+    }
+
+    override fun getWebClientPoToken(videoId: String): PoTokenResult? =
+        record("web", delegate.getWebClientPoToken(videoId))
+
+    override fun getWebEmbedClientPoToken(videoId: String): PoTokenResult? =
+        record(
+            "webEmbed",
+            if (serveAllClients) delegate.getWebClientPoToken(videoId) else null,
+        )
+
+    override fun getAndroidClientPoToken(videoId: String): PoTokenResult? =
+        record(
+            "android",
+            if (serveAllClients) delegate.getWebClientPoToken(videoId) else null,
+        )
+
+    override fun getIosClientPoToken(videoId: String): PoTokenResult? =
+        record(
+            "ios",
+            if (serveAllClients) delegate.getWebClientPoToken(videoId) else null,
+        )
+}
 
 /**
  * THE VERIFICATION GATE (design spec section 6).
@@ -46,10 +90,14 @@ class PoTokenGateTest {
     fun gateReportsWhetherAPoTokenLiftsTheMadeForKidsCap() = runBlocking {
         val poTokenSession = PoTokenSession(WebViewPoTokenGenerator(context), SystemClockImpl)
         session = poTokenSession
+        // serveAllClients: the library asked only the non-web clients on v0.26.5, so
+        // returning null for them meant nothing was ever attested. Serve them the web
+        // attestation and see whether the cap moves.
+        val counting = CountingPoTokenProvider(poTokenSession, serveAllClients = true)
         val downloader = OkDownloader()
-        ExtractorInit.ensureInitialised(downloader, poTokenSession)
+        ExtractorInit.ensureInitialised(downloader, counting)
 
-        val source = ExtractorContentSource(poTokenSession, downloader)
+        val source = ExtractorContentSource(counting, downloader)
         val channel = source.resolveChannel(madeForKidsChannel).getOrThrow()
         val firstVideo = source.listVideos(channel.id, null).getOrThrow().videos.first()
 
@@ -59,6 +107,7 @@ class PoTokenGateTest {
         )
         val control = StreamInfo.getInfo(ServiceList.YouTube, controlVideo)
 
+        println("GATE/po-token calls=" + counting.calls.joinToString(",") + " served=" + counting.served.get())
         println("GATE/health=" + poTokenSession.health.value)
         println("GATE/made-for-kids " + profile(kids))
         println("GATE/control       " + profile(control))
