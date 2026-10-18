@@ -12,7 +12,7 @@ import org.schabi.newpipe.extractor.exceptions.ContentNotAvailableException
  * [ContentNotAvailableException], while its own parent [ParsingException] means the
  * parser broke — YouTube changed, not the video — and stays retryable.
  */
-object ExtractionFailures {
+internal object ExtractionFailures {
 
     fun classify(videoId: String, cause: Throwable): Throwable = when (cause) {
         is VideoUnavailable -> cause

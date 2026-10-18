@@ -8,7 +8,7 @@ package com.noam.kidtube.extractor
  * visitorData and must be minted exactly once per session before anything else, and a
  * per-video player token is minted separately by [PoTokenGenerator.tokenFor].
  */
-data class PoTokenSessionData(
+internal data class PoTokenSessionData(
     val visitorData: String,
     val streamingPoToken: String,
     val expiresAtEpochSeconds: Long,
@@ -19,7 +19,7 @@ data class PoTokenSessionData(
  * BotGuard inside a WebView; this interface exists so every failure path around it is
  * testable without a device.
  */
-interface PoTokenGenerator {
+internal interface PoTokenGenerator {
     /**
      * Fetches visitorData from Innertube, runs BotGuard, exchanges its response for an
      * integrity token, and mints the streaming token.

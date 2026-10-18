@@ -15,7 +15,7 @@ import java.time.OffsetDateTime
  * The feed carries no duration, so [VideoRef.durationSeconds] comes back null and is
  * filled in later by a deep sync or at play time.
  */
-object RssFeedParser {
+internal object RssFeedParser {
 
     fun parse(xml: String): List<VideoRef> {
         if (xml.isBlank()) return emptyList()

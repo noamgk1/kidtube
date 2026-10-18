@@ -29,7 +29,7 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 import okhttp3.Request as OkRequest
 
-class ExtractorContentSource(
+internal class ExtractorContentSource(
     private val poTokenProvider: PoTokenProvider,
     private val downloader: Downloader = OkDownloader(),
     private val httpGet: (String) -> String = ::downloadText,

@@ -14,7 +14,7 @@ import org.schabi.newpipe.extractor.stream.AudioTrackType
 import org.schabi.newpipe.extractor.stream.StreamInfo
 import org.schabi.newpipe.extractor.stream.StreamType
 
-class ExtractorPlaybackResolver(
+internal class ExtractorPlaybackResolver(
     private val poTokenProvider: PoTokenProvider,
     private val downloader: Downloader = OkDownloader(),
     private val maxHeight: Int = 1080,

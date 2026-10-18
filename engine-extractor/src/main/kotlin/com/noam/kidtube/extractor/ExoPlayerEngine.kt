@@ -31,7 +31,7 @@ import kotlinx.coroutines.launch
 private const val POSITION_TICK_MS = 500L
 
 @OptIn(UnstableApi::class)
-class ExoVideoPlayer(
+internal class ExoVideoPlayer(
     context: Context,
     private val scope: CoroutineScope,
 ) : VideoPlayer {
@@ -144,7 +144,7 @@ class ExoVideoPlayer(
 }
 
 @OptIn(UnstableApi::class)
-class ExoPlayerEngine(private val appContext: Context) : PlayerEngine {
+internal class ExoPlayerEngine(private val appContext: Context) : PlayerEngine {
 
     override fun createController(scope: CoroutineScope): VideoPlayer =
         ExoVideoPlayer(appContext.applicationContext, scope)

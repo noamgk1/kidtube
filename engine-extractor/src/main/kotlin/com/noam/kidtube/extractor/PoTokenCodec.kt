@@ -14,7 +14,7 @@ import java.util.Base64
  * The shapes here follow YouTube's attestation protocol as implemented by NewPipe
  * (GPLv3, as is this app).
  */
-object PoTokenCodec {
+internal object PoTokenCodec {
 
     /**
      * Reshapes the raw Create-endpoint response into the object the page's

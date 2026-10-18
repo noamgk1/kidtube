@@ -9,7 +9,7 @@ import org.schabi.newpipe.extractor.services.youtube.extractors.YoutubeStreamExt
  * NewPipeExtractor keeps its downloader and PO token provider in process-wide statics,
  * so initialisation must happen exactly once and before any extraction.
  */
-object ExtractorInit {
+internal object ExtractorInit {
 
     @Volatile
     private var done = false

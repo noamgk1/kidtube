@@ -26,7 +26,7 @@ import org.schabi.newpipe.extractor.services.youtube.PoTokenResult
  * Returning null is deliberate and safe: extraction then proceeds unattested, which
  * means 360p on Made-for-Kids content rather than no playback at all.
  */
-class PoTokenSession(
+internal class PoTokenSession(
     private val generator: PoTokenGenerator,
     private val clock: Clock,
     private val coldInitTimeoutMs: Long = COLD_INIT_TIMEOUT_MS,

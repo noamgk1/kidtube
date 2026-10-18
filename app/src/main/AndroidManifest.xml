@@ -8,5 +8,17 @@
         android:allowBackup="false"
         android:label="KidTube"
         android:supportsRtl="true"
-        android:theme="@style/Theme.KidTube" />
+        android:theme="@style/Theme.KidTube">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:screenOrientation="landscape"
+            android:configChanges="orientation|screenSize|keyboardHidden">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
 </manifest>

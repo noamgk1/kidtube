@@ -32,7 +32,7 @@ import java.util.concurrent.ConcurrentHashMap
  * Timeouts and retry policy live in [PoTokenSession], not here: this class reports what
  * happened and nothing more.
  */
-class WebViewPoTokenGenerator(
+internal class WebViewPoTokenGenerator(
     appContext: Context,
     private val downloader: Downloader = OkDownloader(),
 ) : PoTokenGenerator {

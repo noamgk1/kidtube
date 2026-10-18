@@ -1,6 +1,6 @@
 package com.noam.kidtube.extractor
 
-data class VideoCandidate(
+internal data class VideoCandidate(
     val url: String,
     val height: Int,
     /** A muxed stream carries its own audio, so no separate audio track is needed. */
@@ -8,7 +8,7 @@ data class VideoCandidate(
     val mimeType: String,
 )
 
-data class AudioCandidate(
+internal data class AudioCandidate(
     val url: String,
     val localeTag: String?,
     val isOriginal: Boolean,
@@ -16,9 +16,9 @@ data class AudioCandidate(
     val mimeType: String,
 )
 
-data class ChosenStreams(val video: VideoCandidate, val audio: AudioCandidate?)
+internal data class ChosenStreams(val video: VideoCandidate, val audio: AudioCandidate?)
 
-object StreamChooser {
+internal object StreamChooser {
 
     /**
      * Picks what to play. Two shapes matter:
