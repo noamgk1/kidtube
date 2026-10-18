@@ -24,6 +24,23 @@ class KidGridLoader(
     private val catalogStore: CatalogStore,
 ) {
     fun load(selected: ChannelId?): KidGridModel {
+        val snapshot = snapshot()
+        val videos = if (selected == null) {
+            snapshot.videos
+        } else {
+            snapshot.videos.filter { it.channelId == selected }
+        }
+        return KidGridModel(snapshot.channels, selected, videos)
+    }
+
+    /**
+     * Everything the child may see, already filtered and ordered.
+     *
+     * Home, search and the channel pages all read from this one snapshot rather than
+     * each re-deriving what is allowed, so a blocked video cannot reappear through a
+     * screen that forgot to check.
+     */
+    fun snapshot(): LibrarySnapshot {
         val whitelist = whitelistStore.load()
 
         val approved = whitelist.channels.values
@@ -33,13 +50,7 @@ class KidGridLoader(
 
         val channels = approved.map { it.first }.sortedBy { it.title }
 
-        val fromChannels = approved
-            .filter { (channel, _) -> selected == null || channel.id == selected }
-            .flatMap { it.second }
-
-        val singles = if (selected == null) whitelist.singleVideos.values else emptyList()
-
-        val videos = (fromChannels + singles)
+        val videos = (approved.flatMap { it.second } + whitelist.singleVideos.values)
             .filterNot { whitelist.isBlocked(it.id) }
             .distinctBy { it.id.value }
             .sortedWith(
@@ -47,6 +58,6 @@ class KidGridLoader(
                     .thenByDescending { it.publishedAtEpochSeconds ?: 0L },
             )
 
-        return KidGridModel(channels, selected, videos)
+        return LibrarySnapshot(channels, videos)
     }
 }
