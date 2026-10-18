@@ -53,6 +53,7 @@ dependencies {
     testImplementation(kotlin("test"))
     testImplementation(libs.kotlinx.coroutines.test)
 
+    androidTestImplementation(kotlin("test"))
     androidTestImplementation(platform(libs.compose.bom))
     androidTestImplementation(libs.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.test.runner)
