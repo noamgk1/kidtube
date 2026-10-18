@@ -23,6 +23,20 @@ sealed interface IssueResult {
     data class Denied(val reason: DenyReason) : IssueResult
 }
 
+/**
+ * Proof that the extracted details were checked too. The player accepts nothing else,
+ * so the whitelist promise cannot be bypassed by a bug in the UI layer.
+ */
+class ConfirmedTicket internal constructor(
+    val ticket: PlaybackTicket,
+    val details: VideoDetails,
+)
+
+sealed interface ConfirmResult {
+    data class Allowed(val confirmed: ConfirmedTicket) : ConfirmResult
+    data class Denied(val reason: DenyReason) : ConfirmResult
+}
+
 class Policy {
 
     /**
@@ -46,5 +60,19 @@ class Policy {
         if (remainingBudgetSeconds < 1) return IssueResult.Denied(DenyReason.BUDGET_EXHAUSTED)
 
         return IssueResult.Allowed(PlaybackTicket(videoId, channelId, remainingBudgetSeconds))
+    }
+
+    /**
+     * Phase two: the facts that only extraction reveals. A mismatched id means the
+     * engine handed back something other than what was asked for, which is treated
+     * as unapproved rather than trusted.
+     */
+    fun confirm(ticket: PlaybackTicket, details: VideoDetails): ConfirmResult {
+        if (details.id != ticket.videoId) {
+            return ConfirmResult.Denied(DenyReason.NOT_WHITELISTED)
+        }
+        if (details.isLive) return ConfirmResult.Denied(DenyReason.LIVE_STREAM)
+        if (details.ageLimit > 0) return ConfirmResult.Denied(DenyReason.AGE_RESTRICTED)
+        return ConfirmResult.Allowed(ConfirmedTicket(ticket, details))
     }
 }
