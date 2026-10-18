@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -22,8 +24,41 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true }
+    signingConfigs {
+        /**
+         * Sideload signing. The release build type is not debuggable, which matters for
+         * this app specifically: a debuggable build lets anyone with adb run `run-as` and
+         * read the app's private files - the whitelist and the password hash among them -
+         * which is exactly the promise the app makes to a parent.
+         *
+         * This uses the local debug keystore so a release APK can be installed without
+         * inventing a password. The key is well known and public, so an APK signed with
+         * it must never be distributed as if it were trusted; point `sideload.keystore`
+         * in local.properties at a real key before sharing builds with anyone.
+         */
+        create("sideload") {
+            val localProps = Properties().apply {
+                val f = rootProject.file("local.properties")
+                if (f.exists()) f.inputStream().use { load(it) }
+            }
+            val custom = localProps.getProperty("sideload.keystore")
+            if (custom != null) {
+                storeFile = file(custom)
+                storePassword = localProps.getProperty("sideload.storePassword")
+                keyAlias = localProps.getProperty("sideload.keyAlias")
+                keyPassword = localProps.getProperty("sideload.keyPassword")
+            } else {
+                storeFile = File(System.getProperty("user.home"), ".android/debug.keystore")
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            }
+        }
+    }
+
     buildTypes {
         release {
+            signingConfig = signingConfigs.getByName("sideload")
             isMinifyEnabled = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),

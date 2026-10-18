@@ -49,6 +49,36 @@ logcat rather than to Gradle's console:
 adb logcat -d -s System.out | grep -E "GATE/|CANARY/"
 ```
 
+## Installing it
+
+```bash
+./gradlew :app:assembleRelease     # app/build/outputs/apk/release/app-release.apk  (~1.8 MB)
+adb install -r app/build/outputs/apk/release/app-release.apk
+```
+
+**Install the release build, not the debug one.** A debug APK is `debuggable`, and on a
+debuggable app anyone with adb can `run-as` into its private files — the whitelist, the
+settings, the password hash. That is precisely the promise this app makes to a parent,
+so for anything beyond a quick look on your own machine, use release.
+
+The release build is signed with the local **debug keystore** so it installs without
+setting up a key. That key is public and well known, so an APK signed with it must never
+be handed around as if it were trusted. To sign with a real key, put this in
+`local.properties`:
+
+```properties
+sideload.keystore=C:\path\to\your.jks
+sideload.storePassword=...
+sideload.keyAlias=...
+sideload.keyPassword=...
+```
+
+### First run
+
+The grid is empty, because nothing is approved yet. **Hold the "הכל" avatar for three
+seconds** to reach the parent screen and set the password — see the residual risk note
+below before handing the tablet over.
+
 ## Building
 
 Needs JDK 17 and an Android SDK. `local.properties` must point at the SDK:
