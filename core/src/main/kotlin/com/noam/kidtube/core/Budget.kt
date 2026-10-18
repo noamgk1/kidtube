@@ -67,18 +67,24 @@ class BudgetAccountant(private val clock: Clock) {
     }
 
     /**
-     * Charges whatever has been watched beyond what was already taken. Uses the
-     * monotonic clock, so moving the wall clock during a video changes nothing.
+     * Charges whatever has been watched beyond what was already taken.
+     *
+     * [watchedSeconds] is a running total supplied by the caller rather than read from
+     * the clock, because elapsed wall time is not watch time: a paused video, or an app
+     * sent to the background, must not consume the allowance. The caller owns that
+     * distinction; this method only ever moves consumption upwards, so a total that
+     * arrives smaller than last time refunds nothing.
      */
-    fun tick(session: WatchSession, stored: Budget): Pair<WatchSession, Budget> {
+    fun charge(
+        session: WatchSession,
+        stored: Budget,
+        watchedSeconds: Int,
+    ): Pair<WatchSession, Budget> {
         require(stored.dateIso == session.budgetDateIso) {
             "budget record rolled from ${session.budgetDateIso} to ${stored.dateIso} while a " +
                 "session was open; forToday() must be called from the issue path only"
         }
-        val watched =
-            ((clock.elapsedRealtimeMillis() - session.startedRealtimeMs) / 1_000L)
-                .toInt()
-                .coerceAtLeast(0)
+        val watched = watchedSeconds.coerceAtLeast(0)
         val shortfall = watched - session.debitedSeconds
         if (shortfall <= 0) return session to stored
 
@@ -90,6 +96,17 @@ class BudgetAccountant(private val clock: Clock) {
         )
         return advanced to stored.copy(consumedSeconds = stored.consumedSeconds + shortfall)
     }
+
+    /**
+     * Charges against the monotonic clock, treating the whole session as watched. Correct
+     * only when playback never pauses; prefer [charge] with a tracked play total.
+     */
+    fun tick(session: WatchSession, stored: Budget): Pair<WatchSession, Budget> =
+        charge(
+            session,
+            stored,
+            ((clock.elapsedRealtimeMillis() - session.startedRealtimeMs) / 1_000L).toInt(),
+        )
 
     fun grantBonus(stored: Budget, seconds: Int): Budget =
         stored.copy(bonusSeconds = stored.bonusSeconds + seconds)

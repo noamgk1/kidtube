@@ -44,6 +44,19 @@ class CatalogStore(private val files: FileStore) {
             .filter { it.endsWith(".json") }
             .map { ChannelId(it.removeSuffix(".json")) }
 
+    companion object {
+        /**
+         * The rule [path] enforces, exposed so a caller holding untrusted ids (an
+         * imported backup, say) can refuse them before writing anything rather than
+         * discovering the problem as a thrown exception half-way through.
+         */
+        fun isUsableChannelId(value: String): Boolean =
+            value.isNotBlank() &&
+                value.none { it == '/' || it == Char(92) } &&
+                value != "." &&
+                value != ".."
+    }
+
     private fun path(channelId: ChannelId): String {
         require(channelId.value.isNotBlank()) { "blank channel id" }
         // Char(92) is the backslash, written this way to keep the source free of

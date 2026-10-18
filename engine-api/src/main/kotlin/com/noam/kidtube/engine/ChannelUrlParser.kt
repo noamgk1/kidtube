@@ -46,6 +46,16 @@ object ChannelUrlParser {
     )
     private val SHORT_HOSTS = setOf("youtu.be", "www.youtu.be")
 
+    /**
+     * Whether a string is a canonical YouTube channel id (UC + 22 id characters).
+     *
+     * Exposed because the resolved id is the single point of failure behind "the same
+     * channel added twice is one entry": deduplication, the catalog filename and every
+     * paging URL key off it, so the extractor must refuse anything that is not one
+     * rather than trusting whatever URL the library hands back.
+     */
+    fun isCanonicalChannelId(value: String): Boolean = CHANNEL_ID.matches(value)
+
     fun parse(raw: String): PastedLink {
         val trimmed = raw.trim()
         if (trimmed.isEmpty()) {

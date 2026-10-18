@@ -114,12 +114,20 @@ internal class WebViewPoTokenGenerator(
         runCatching { mint(identifier).getOrThrow() }
 
     override fun release() {
-        val view = webView ?: return
-        webView = null
         pendingTokens.values.forEach {
             it.complete(Result.failure(IllegalStateException("generator released")))
         }
         pendingTokens.clear()
+        destroyWebView()
+    }
+
+    /**
+     * Tears down the current WebView, if any. Safe to call from any thread and safe to
+     * call twice; the destruction itself must happen on the main thread.
+     */
+    private fun destroyWebView() {
+        val view = webView ?: return
+        webView = null
         android.os.Handler(android.os.Looper.getMainLooper()).post {
             runCatching {
                 view.removeJavascriptInterface(JS_INTERFACE)
@@ -187,6 +195,11 @@ internal class WebViewPoTokenGenerator(
             "</script>",
             "\n$JS_INTERFACE.downloadAndRunBotguard()</script>",
         )
+
+        // Every failed cold init used to leave its WebView behind: ensureSession retries
+        // after each timeout, and a flaky connection would open a fresh renderer process
+        // per attempt, all day. Destroy the previous one first.
+        destroyWebView()
 
         val view = WebView(context).apply {
             settings.javaScriptEnabled = true

@@ -3,6 +3,7 @@ package com.noam.kidtube.extractor
 import com.noam.kidtube.core.PlaybackSource
 import com.noam.kidtube.core.PlaybackTicket
 import com.noam.kidtube.core.VideoDetails
+import com.noam.kidtube.core.VideoId
 import com.noam.kidtube.engine.PlaybackResolver
 import com.noam.kidtube.engine.VideoUnavailable
 import kotlinx.coroutines.Dispatchers
@@ -78,7 +79,10 @@ internal class ExtractorPlaybackResolver(
             ?: throw VideoUnavailable(videoId, "no playable stream combination was offered")
 
         return VideoDetails(
-            id = ticket.videoId,
+            // The extracted id, not the requested one. Copying the ticket's id back made
+            // Policy.confirm's identity check tautologically true, so a substituted video
+            // (YouTube does serve one for merged or replaced uploads) would have passed.
+            id = VideoId(info.id.orEmpty().ifBlank { videoId }),
             title = info.name.orEmpty(),
             durationSeconds = info.duration,
             ageLimit = info.ageLimit,

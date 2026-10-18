@@ -16,6 +16,7 @@ import com.noam.kidtube.core.store.SettingsStore
 import com.noam.kidtube.core.store.WatchLedger
 import com.noam.kidtube.core.store.WhitelistStore
 import com.noam.kidtube.engine.PlaybackPhase
+import com.noam.kidtube.engine.PlayerState
 import com.noam.kidtube.engine.fake.FakePlaybackResolver
 import com.noam.kidtube.engine.fake.FakeVideoPlayer
 import kotlinx.coroutines.test.runTest
@@ -69,6 +70,9 @@ class PlaybackCoordinatorTest {
 
     @AfterTest
     fun tearDown() { root.deleteRecursively() }
+
+    /** Watch time is only charged while the player reports PLAYING. */
+    private fun playing() = PlayerState(PlaybackPhase.PLAYING, durationMs = 300_000)
 
     private fun approveChannel(limitMinutes: Int = 60) {
         whitelistStore.addChannel(Channel(channelId, "Kids", null, "feed", 1L))
@@ -190,6 +194,7 @@ class PlaybackCoordinatorTest {
         coordinator.play(video)
         coordinator.onPlayerFailed("HTTP 403", true)
         coordinator.onPlayerFailed("HTTP 403", true) // gives up
+        coordinator.onEnded(completed = false) // closes the viewing, as onPlayerState does
 
         coordinator.play(other)
         assertIs<PlaybackOutcome.Started>(coordinator.onPlayerFailed("HTTP 403", true))
@@ -201,6 +206,7 @@ class PlaybackCoordinatorTest {
         resolver.scriptDetails(video.id)
         val coordinator = coordinator()
         coordinator.play(video)
+        coordinator.onPlayerState(playing())
 
         clock.advance(60)
         val tick = assertIs<TickResult.Continue>(coordinator.tick())
@@ -214,6 +220,7 @@ class PlaybackCoordinatorTest {
         resolver.scriptDetails(video.id)
         val coordinator = coordinator()
         coordinator.play(video)
+        coordinator.onPlayerState(playing())
 
         clock.advance(120)
         assertIs<TickResult.BudgetExhausted>(coordinator.tick())
@@ -226,6 +233,7 @@ class PlaybackCoordinatorTest {
         resolver.scriptDetails(video.id)
         val coordinator = coordinator()
         coordinator.play(video)
+        coordinator.onPlayerState(playing())
         clock.advance(90)
         coordinator.onEnded(completed = true)
 
@@ -242,6 +250,7 @@ class PlaybackCoordinatorTest {
         resolver.scriptDetails(video.id)
         val coordinator = coordinator()
         coordinator.play(video)
+        coordinator.onPlayerState(playing())
         clock.advance(20)
         coordinator.onEnded(completed = false)
 
@@ -260,6 +269,7 @@ class PlaybackCoordinatorTest {
         resolver.scriptDetails(video.id)
         val coordinator = coordinator()
         coordinator.play(video)
+        coordinator.onPlayerState(playing())
         clock.advance(30)
         coordinator.onEnded(completed = true)
         coordinator.onEnded(completed = true)

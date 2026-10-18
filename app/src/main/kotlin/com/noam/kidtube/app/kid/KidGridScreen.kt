@@ -1,9 +1,7 @@
 package com.noam.kidtube.app.kid
 
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -58,9 +56,8 @@ fun KidGridScreen(
                     imageUrl = null,
                     selected = model.selectedChannelId == null,
                     onClick = { onSelectChannel(null) },
-                    // The admin door: a deliberate long press on a fixed spot, with no
-                    // ripple and no affordance a child would poke at.
-                    onLongClick = onAdminLongPress,
+                    // The admin door: a deliberate three-second hold on a fixed spot.
+                    onAdminHold = onAdminLongPress,
                 )
             }
             items(model.channels, key = { it.id.value }) { channel ->
@@ -69,7 +66,7 @@ fun KidGridScreen(
                     imageUrl = channel.avatarUrl,
                     selected = model.selectedChannelId == channel.id,
                     onClick = { onSelectChannel(channel.id) },
-                    onLongClick = {},
+                    onAdminHold = null,
                 )
             }
         }
@@ -86,25 +83,32 @@ fun KidGridScreen(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ChannelAvatar(
     label: String,
     imageUrl: String?,
     selected: Boolean,
     onClick: () -> Unit,
-    onLongClick: () -> Unit,
+    onAdminHold: (() -> Unit)?,
 ) {
+    val base = Modifier.padding(horizontal = 8.dp)
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
-            .padding(horizontal = 8.dp)
-            .combinedClickable(
+        modifier = if (onAdminHold == null) {
+            base.clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 onClick = onClick,
-                onLongClick = onLongClick,
-            ),
+            )
+        } else {
+            base
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onClick,
+                )
+                .adminHold(onTriggered = onAdminHold)
+        },
     ) {
         Box(
             modifier = Modifier

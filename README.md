@@ -15,7 +15,7 @@ the screen.* That is enforced structurally rather than by care — see
 
 | | |
 |---|---|
-| Unit tests | 272, all passing |
+| Unit tests | 312, all passing |
 | `assembleDebug` | succeeds |
 | `assembleDebugAndroidTest` | succeeds |
 | Instrumented tests | **written but never run** — no device was available |
@@ -153,6 +153,17 @@ instantly and still works on a day when the engine is broken.
 - **Two audiences, two error surfaces.** The child gets a calm card with one way out and
   no jargon; the parent gets the real exception, video id and timestamp on the status
   screen. A child who sees a broken screen goes looking for a way around it.
+
+## One residual risk worth knowing
+
+On a **fresh or freshly-reset device the parent password is not yet set**, and the admin
+door cannot tell a parent from a child: whoever holds it down for three seconds first
+gets to choose the password. There is no way around this without an account system, which
+this app deliberately does not have.
+
+**Set the password before handing the tablet over.** After that the door is a
+three-second hold on one fixed, unmarked spot with no ripple and no affordance, and the
+only reset is destructive.
 
 ## Licence
 

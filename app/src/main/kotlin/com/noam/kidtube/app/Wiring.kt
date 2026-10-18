@@ -20,6 +20,9 @@ import com.noam.kidtube.engine.PlayerEngine
 // The only place in :app that names the extractor engine. Swapping engines is this file.
 import com.noam.kidtube.extractor.ExtractorEngine
 import com.noam.kidtube.extractor.SystemClockImpl
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.StateFlow
 
 class Graph(
@@ -39,6 +42,12 @@ class Graph(
     val engineHealth: StateFlow<EngineHealth>,
     val releaseEngine: () -> Unit,
     val catalogSync: CatalogSync,
+    /**
+     * Outlives any screen. A deep catalog sync runs for up to four minutes on a large
+     * channel, so launching it from a composition's scope meant the parent cancelled it
+     * simply by leaving the admin screen.
+     */
+    val appScope: CoroutineScope,
     val corruptions: List<String>,
 )
 
@@ -91,6 +100,7 @@ object Wiring {
                 syncStateStore,
                 clock,
             ),
+            appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
             corruptions = corruptions,
         )
     }

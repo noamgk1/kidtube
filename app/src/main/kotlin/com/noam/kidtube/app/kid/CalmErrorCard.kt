@@ -39,7 +39,10 @@ fun CalmErrorCard(message: String, onBack: () -> Unit) {
 
 /** Child-facing wording for every refusal. Never shows a reason code. */
 fun calmMessageFor(outcome: PlaybackOutcome): String = when (outcome) {
+    // Neither of these is something a child should ever be told about: one means the
+    // video is playing, the other that another tap is already being handled.
     is PlaybackOutcome.Started -> ""
+    is PlaybackOutcome.Busy -> ""
     is PlaybackOutcome.Unavailable -> "הסרטון הזה כבר לא קיים. אפשר לבחור אחר."
     is PlaybackOutcome.Failed -> "לא הצלחנו להפעיל את הסרטון. אפשר לנסות אחר."
     is PlaybackOutcome.Refused -> when (outcome.reason) {

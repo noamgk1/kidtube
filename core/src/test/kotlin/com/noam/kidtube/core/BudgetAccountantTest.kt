@@ -112,6 +112,55 @@ class BudgetAccountantTest {
         }
     }
 
+    // charge() exists because elapsed wall time is not watch time: a paused video, or an
+    // app in the background, must not consume the allowance.
+
+    @Test
+    fun `charge debits only the shortfall beyond what was already taken`() {
+        val (session, afterOpen) = accountant.openSession(VideoId("v1"), Budget(today))
+        val (next, afterCharge) = accountant.charge(session, afterOpen, watchedSeconds = 60)
+        assertEquals(60, afterCharge.consumedSeconds, "15 up front plus 45 of shortfall")
+        assertEquals(60, next.debitedSeconds)
+    }
+
+    @Test
+    fun `charging less than the up-front debit changes nothing`() {
+        val (session, afterOpen) = accountant.openSession(VideoId("v1"), Budget(today))
+        val (_, afterCharge) = accountant.charge(session, afterOpen, watchedSeconds = 5)
+        assertEquals(15, afterCharge.consumedSeconds)
+    }
+
+    @Test
+    fun `charging is idempotent for the same watched total`() {
+        val (session, afterOpen) = accountant.openSession(VideoId("v1"), Budget(today))
+        val (next, once) = accountant.charge(session, afterOpen, watchedSeconds = 60)
+        val (_, twice) = accountant.charge(next, once, watchedSeconds = 60)
+        assertEquals(60, twice.consumedSeconds, "re-charging the same total must not double-bill")
+    }
+
+    @Test
+    fun `charge never refunds when the watched total goes backwards`() {
+        val (session, afterOpen) = accountant.openSession(VideoId("v1"), Budget(today))
+        val (next, after60) = accountant.charge(session, afterOpen, watchedSeconds = 60)
+        val (_, after10) = accountant.charge(next, after60, watchedSeconds = 10)
+        assertEquals(60, after10.consumedSeconds)
+    }
+
+    @Test
+    fun `a negative watched total is treated as zero`() {
+        val (session, afterOpen) = accountant.openSession(VideoId("v1"), Budget(today))
+        val (_, after) = accountant.charge(session, afterOpen, watchedSeconds = -500)
+        assertEquals(15, after.consumedSeconds)
+    }
+
+    @Test
+    fun `charge refuses a session whose day has rolled over`() {
+        val (session, _) = accountant.openSession(VideoId("v1"), Budget(today))
+        assertFailsWith<IllegalArgumentException> {
+            accountant.charge(session, Budget("2026-10-19"), watchedSeconds = 60)
+        }
+    }
+
     @Test
     fun `a bonus adds to the allowance without touching consumption`() {
         val granted = accountant.grantBonus(Budget(today, consumedSeconds = 3_600), 600)

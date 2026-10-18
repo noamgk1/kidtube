@@ -30,6 +30,8 @@ class CatalogSync(
     private val syncStateStore: SyncStateStore,
     private val clock: Clock,
     private val maxPages: Int = MAX_PAGES,
+    /** Called after every page, so the admin screen can show a sync actually moving. */
+    private val onProgress: (SyncState) -> Unit = {},
 ) {
 
     /** Returns how many videos were newly stored. */
@@ -48,8 +50,10 @@ class CatalogSync(
             pages++
 
             val next = page.next
+            // Written after every page, not only at the end: a sync killed at page 6 must
+            // leave honest progress on disk rather than no trace at all.
+            writeState(channelId, pages, complete = next == null, error = null)
             if (next == null) {
-                writeState(channelId, pages, complete = true, error = null)
                 return Result.success(added)
             }
             cursor = next
@@ -78,16 +82,16 @@ class CatalogSync(
         }
 
     private fun writeState(channelId: ChannelId, pages: Int, complete: Boolean, error: String?) {
-        syncStateStore.save(
-            SyncState(
-                channelId = channelId.value,
-                pagesDone = pages,
-                videosStored = catalogStore.load(channelId).size,
-                complete = complete,
-                lastError = error,
-                updatedAtEpochSeconds = clock.nowEpochMillis() / 1_000,
-            ),
+        val state = SyncState(
+            channelId = channelId.value,
+            pagesDone = pages,
+            videosStored = catalogStore.load(channelId).size,
+            complete = complete,
+            lastError = error,
+            updatedAtEpochSeconds = clock.nowEpochMillis() / 1_000,
         )
+        syncStateStore.save(state)
+        onProgress(state)
     }
 
     companion object {

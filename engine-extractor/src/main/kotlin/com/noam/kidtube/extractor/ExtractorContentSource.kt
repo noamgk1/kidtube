@@ -64,9 +64,23 @@ internal class ExtractorContentSource(
 
         try {
             val info = ChannelInfo.getInfo(youtube, canonical)
+            val resolvedId = info.url.substringAfterLast('/')
+            // Everything downstream keys off this id, so a non-canonical one is refused
+            // rather than stored: it would duplicate the channel, write a catalog file
+            // under a handle, and build paging URLs that cannot work.
+            if (!ChannelUrlParser.isCanonicalChannelId(resolvedId)) {
+                return@withContext Result.failure(
+                    ChannelResolutionError.Unreachable(
+                        canonical,
+                        IllegalStateException(
+                            "resolved to a non-canonical channel id: '" + resolvedId + "'",
+                        ),
+                    ),
+                )
+            }
             Result.success(
                 Channel(
-                    id = ChannelId(info.url.substringAfterLast('/')),
+                    id = ChannelId(resolvedId),
                     title = info.name.orEmpty(),
                     avatarUrl = info.avatars.firstOrNull()?.url,
                     feedUrl = info.feedUrl.orEmpty(),

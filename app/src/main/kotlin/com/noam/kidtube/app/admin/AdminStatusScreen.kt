@@ -18,6 +18,7 @@ import com.noam.kidtube.engine.EngineHealth
 @Composable
 fun AdminStatusScreen(
     view: StatusView,
+    notice: String?,
     onExport: () -> Unit,
     onImport: () -> Unit,
     onResetEverything: () -> Unit,
@@ -80,6 +81,9 @@ fun AdminStatusScreen(
             modifier = Modifier.padding(top = 24.dp),
         )
         Text("הגיבוי אינו כולל את הסיסמה, כדי שאיפוס ושחזור יחזירו אותך פנימה.")
+        if (notice != null) {
+            Text(notice, modifier = Modifier.padding(top = 8.dp))
+        }
         Row(modifier = Modifier.padding(top = 12.dp)) {
             Button(onClick = onExport) { Text("ייצא גיבוי") }
             Button(onClick = onImport, modifier = Modifier.padding(start = 12.dp)) {

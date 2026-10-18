@@ -58,19 +58,32 @@ class BackupCodec(
             )
         }
 
-        whitelistStore.save(backup.whitelist)
-        backup.catalogs.forEach { (channelId, videos) ->
-            catalogStore.save(ChannelId(channelId), videos)
+        // Validate everything before writing anything. A backup is a file a human can
+        // edit, and a bad channel key discovered half-way through would leave the live
+        // whitelist already replaced and only some catalogs written.
+        val badKey = backup.catalogs.keys.firstOrNull { !CatalogStore.isUsableChannelId(it) }
+        if (badKey != null) {
+            return Result.failure(
+                IllegalArgumentException(
+                    "backup contains an unusable channel id: '" + badKey + "'",
+                ),
+            )
         }
-        // Password fields are preserved from whatever is installed right now.
-        val current = settingsStore.load()
-        settingsStore.save(
-            current.copy(
-                dailyLimitMinutes = backup.dailyLimitMinutes,
-                engineId = backup.engineId,
-            ),
-        )
-        backup.history.sortedBy { it.startedAtEpochSeconds }.forEach { ledger.append(it) }
-        return Result.success(Unit)
+
+        return runCatching {
+            whitelistStore.save(backup.whitelist)
+            backup.catalogs.forEach { (channelId, videos) ->
+                catalogStore.save(ChannelId(channelId), videos)
+            }
+            // Password fields are preserved from whatever is installed right now.
+            val current = settingsStore.load()
+            settingsStore.save(
+                current.copy(
+                    dailyLimitMinutes = backup.dailyLimitMinutes,
+                    engineId = backup.engineId,
+                ),
+            )
+            backup.history.sortedBy { it.startedAtEpochSeconds }.forEach { ledger.append(it) }
+        }
     }
 }

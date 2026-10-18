@@ -12,7 +12,11 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
@@ -37,12 +41,30 @@ import com.noam.kidtube.engine.VideoPlayer
 fun PlayerScreen(
     engine: PlayerEngine,
     controller: VideoPlayer,
+    warning: TimeLimitState,
     onBack: () -> Unit,
 ) {
     val state by controller.state.collectAsStateWithLifecycle()
 
     Box(modifier = Modifier.fillMaxSize()) {
         engine.Surface(controller, Modifier.fillMaxSize())
+
+        // The child meets the daily limit exactly twice: here, gently, and then at the
+        // lock screen. No clock runs through the whole video.
+        if (warning is TimeLimitState.RunningOut) {
+            Surface(
+                color = Color.Black.copy(alpha = 0.6f),
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.align(Alignment.TopCenter).padding(24.dp),
+            ) {
+                Text(
+                    text = "עוד " + ((warning.remainingSeconds + 59) / 60) + " דקות",
+                    color = Color.White,
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+                )
+            }
+        }
 
         Row(
             verticalAlignment = Alignment.CenterVertically,

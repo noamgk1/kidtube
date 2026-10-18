@@ -39,6 +39,8 @@ fun AdminContentScreen(
     pasted: String,
     onPastedChange: (String) -> Unit,
     preview: AddPreview?,
+    singleVideoTitle: String,
+    onSingleVideoTitleChange: (String) -> Unit,
     onCheck: () -> Unit,
     onConfirm: () -> Unit,
     channels: List<Channel>,
@@ -76,7 +78,19 @@ fun AdminContentScreen(
             ) {
                 Column(Modifier.padding(16.dp)) {
                     Text("זהו סרטון בודד, לא ערוץ.", style = MaterialTheme.typography.titleMedium)
-                    Button(onClick = onConfirm, modifier = Modifier.padding(top = 8.dp)) {
+                    // Without a name the grid tile and the history row would show the URL.
+                    OutlinedTextField(
+                        value = singleVideoTitle,
+                        onValueChange = onSingleVideoTitleChange,
+                        label = { Text("שם לסרטון") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    )
+                    Button(
+                        onClick = onConfirm,
+                        enabled = singleVideoTitle.isNotBlank(),
+                        modifier = Modifier.padding(top = 8.dp),
+                    ) {
                         Text("אשר את הסרטון הזה בלבד")
                     }
                 }
