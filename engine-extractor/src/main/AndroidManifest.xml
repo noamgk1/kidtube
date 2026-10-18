@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+      This module does its own networking: Innertube, the BotGuard attestation endpoints
+      and the RSS feeds. Declaring the permission here rather than relying on the
+      consuming app is both correct (it merges into consumers) and necessary — the
+      module's own instrumented test APK does not inherit :app's manifest, so without
+      this the verification gate fails with "Permission denied (missing INTERNET
+      permission?)" before it can measure anything.
+    -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+</manifest>
