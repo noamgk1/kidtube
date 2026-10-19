@@ -56,6 +56,23 @@ android {
         }
     }
 
+    /**
+     * One APK per CPU rather than one carrying all of them.
+     *
+     * The on-device translation engine ships as a native library, and four architectures
+     * of it is 62MB of a 67MB download - for a tablet that can use exactly one. Split,
+     * each build is about 22MB. x86 is left out: a 32-bit-only emulator is the only
+     * thing that would want it.
+     */
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a", "armeabi-v7a", "x86_64")
+            isUniversalApk = false
+        }
+    }
+
     buildTypes {
         release {
             signingConfig = signingConfigs.getByName("sideload")
@@ -83,6 +100,7 @@ dependencies {
     implementation(libs.androidx.work.runtime)
     implementation(libs.coil.compose)
     implementation(libs.media3.ui)
+    implementation(libs.mlkit.translate)
     coreLibraryDesugaring(libs.desugar.jdk.libs.nio)
 
     testImplementation(kotlin("test"))

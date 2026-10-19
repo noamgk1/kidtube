@@ -10,12 +10,14 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -31,6 +33,9 @@ fun AdminStatusScreen(
     onResetEverything: () -> Unit,
     onChangePassword: (String) -> Unit,
     usingDefaultPassword: Boolean,
+    translateTitles: Boolean,
+    onTranslateTitlesChange: (Boolean) -> Unit,
+    translatedCount: Int,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -40,6 +45,37 @@ fun AdminStatusScreen(
             usingDefaultPassword = usingDefaultPassword,
             onChangePassword = onChangePassword,
         )
+
+        Text(
+            text = "כותרות בעברית",
+            style = MaterialTheme.typography.titleLarge,
+            modifier = Modifier.padding(top = 32.dp),
+        )
+        Text(
+            "יוטיוב מחזיר כותרת בעברית רק אם יוצר הערוץ פרסם אחת. בשאר המקרים " +
+                "האפליקציה מתרגמת על המכשיר עצמו — שום דבר לא נשלח החוצה. " +
+                "התרגום אוטומטי, ולפעמים מגושם.",
+        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(top = 12.dp),
+        ) {
+            Switch(
+                checked = translateTitles,
+                onCheckedChange = onTranslateTitlesChange,
+                modifier = Modifier.testTag("translate-switch"),
+            )
+            Text(
+                text = if (translateTitles) {
+                    // The count is the only honest progress signal: the model downloads
+                    // over Wi-Fi only, and until it lands nothing is translated.
+                    translatedCount.toString() + " כותרות תורגמו"
+                } else {
+                    "כבוי — הכותרות יוצגו בשפת המקור"
+                },
+                modifier = Modifier.padding(start = 12.dp),
+            )
+        }
 
         Text(
             text = "מצב המנוע",

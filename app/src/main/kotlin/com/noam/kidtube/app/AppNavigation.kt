@@ -118,7 +118,7 @@ fun AppNavigation(graph: Graph) {
     /** Where cancelling the password prompt returns to. Cancelling must not be an escape. */
     var gateReturnsTo by remember { mutableStateOf(AppScreen.GRID) }
 
-    val gridLoader = remember { KidGridLoader(graph.whitelistStore, graph.catalogStore) }
+    val gridLoader = remember { KidGridLoader(graph.whitelistStore, graph.catalogStore, graph.translationStore) }
     val controller = remember { graph.playerEngine.createController(scope) }
     val coordinator = remember {
         PlaybackCoordinator(
@@ -149,6 +149,12 @@ fun AppNavigation(graph: Graph) {
         val remaining = withContext(Dispatchers.IO) { remainingSecondsToday(graph) }
         warning = TimeLimitPresenter.stateFor(remaining)
         screen = if (remaining <= 0) AppScreen.LOCKED else AppScreen.GRID
+
+        // Catches up on anything approved before translation was turned on, and on the
+        // tail of a sync that finished after the app was last closed. On its own scope:
+        // a library of several hundred titles takes a while, and it must not die because
+        // the child opened a video.
+        graph.appScope.launch { graph.titleTranslation.run() }
     }
 
     // One definition of "leave the parent screen", so the tab and the back gesture agree.
@@ -463,6 +469,7 @@ private fun AdminSearchHost(
                                     if (added != null) {
                                         graph.appScope.launch {
                                             graph.catalogSync.deepSync(added.id)
+                                            graph.titleTranslation.run()
                                         }
                                     }
                                 },
@@ -495,6 +502,15 @@ private fun AdminHost(graph: Graph, authenticator: AdminAuthenticator, onExit: (
     var singleVideoTitle by remember { mutableStateOf("") }
     var version by remember { mutableStateOf(0) }
     var openChannel by remember { mutableStateOf<ChannelId?>(null) }
+
+    // Both read off the settings and translation files, so off the main thread, and
+    // refreshed whenever anything on the admin screen changes.
+    val translateTitles by produceState(true, version) {
+        value = withContext(Dispatchers.IO) { graph.settingsStore.load().translateTitles }
+    }
+    val translatedCount by produceState(0, version) {
+        value = withContext(Dispatchers.IO) { graph.translationStore.all().size }
+    }
 
     // Drives the nudge to stop using the factory password. A file read and a hash, so it
     // is computed off the main thread and refreshed whenever the admin screen changes.
@@ -634,7 +650,10 @@ private fun AdminHost(graph: Graph, authenticator: AdminAuthenticator, onExit: (
                                         // Deliberately not awaited on this scope: the deep
                                         // sync must outlive this screen.
                                         val channel = current.channel
-                                        graph.appScope.launch { addFlow.confirmChannel(channel) }
+                                        graph.appScope.launch {
+                                            addFlow.confirmChannel(channel)
+                                            graph.titleTranslation.run()
+                                        }
                                     }
                                     is AddPreview.SingleVideo ->
                                         withContext(Dispatchers.IO) {
@@ -655,7 +674,10 @@ private fun AdminHost(graph: Graph, authenticator: AdminAuthenticator, onExit: (
                         syncStates = syncStates,
                         onOpenChannel = { openChannel = it },
                         onRebuild = { id ->
-                            graph.appScope.launch { graph.catalogSync.deepSync(id) }
+                            graph.appScope.launch {
+                                graph.catalogSync.deepSync(id)
+                                graph.titleTranslation.run()
+                            }
                             version++
                         },
                         onRemove = { id ->
@@ -748,6 +770,23 @@ private fun AdminHost(graph: Graph, authenticator: AdminAuthenticator, onExit: (
                         }
                     },
                     usingDefaultPassword = usingDefaultPassword,
+                    translateTitles = translateTitles,
+                    onTranslateTitlesChange = { wanted ->
+                        scope.launch {
+                            withContext(Dispatchers.IO) {
+                                graph.settingsStore.save(
+                                    graph.settingsStore.load().copy(translateTitles = wanted),
+                                )
+                                // Turning it off puts the original titles back at once
+                                // rather than leaving stale Hebrew on the child's screen.
+                                if (!wanted) graph.translationStore.clear()
+                            }
+                            // Turning it on backfills what is already approved.
+                            if (wanted) graph.appScope.launch { graph.titleTranslation.run() }
+                            version++
+                        }
+                    },
+                    translatedCount = translatedCount,
                     modifier = content,
                 )
             }

@@ -89,7 +89,24 @@ Two ways to approve content, both on the parent screen:
 Approving a **channel** also allows whatever it uploads in future; approving a **video**
 allows that video and nothing else from its channel.
 
+### Hebrew titles
+
+YouTube is asked for Hebrew and returns the creator's own Hebrew title wherever one was
+published. Most English children's channels have not published any, so the rest are
+machine-translated **on the device** — a one-off ~30MB model, downloaded over Wi-Fi only,
+and nothing about what the child watches leaves the tablet.
+
+It is machine translation of short, punctuation-heavy strings and it reads like it:
+*"Top 20 Anniversary Hit Songs"* comes out as *"למעלה 20 יום נישואין פגע שירים"*. Turn it
+off under **הגדרות** if the original titles are preferable.
+
 ## Building
+
+`assembleRelease` produces **one APK per CPU** rather than one carrying all of them:
+`app-arm64-v8a-release.apk` for any phone or tablet made in the last decade,
+`app-armeabi-v7a-release.apk` for older 32-bit hardware, and `app-x86_64-release.apk`
+for an emulator. The translation engine ships as a native library, so a single universal
+APK is 67MB against about 21MB for the one a given device can actually use.
 
 Needs JDK 17 and an Android SDK. `local.properties` must point at the SDK:
 
@@ -216,7 +233,14 @@ was, for the parent as much as for the child. The only reset is destructive.
 
 ## Licence
 
-**GPLv3** — see [`LICENSE`](LICENSE).
+**GPLv3** — see [`LICENSE`](LICENSE), inherited from NewPipeExtractor.
+
+One thing to know before redistributing: on-device translation uses **ML Kit**, which is
+proprietary. Combining it with GPLv3 code is fine to build and run for yourself — the GPL
+obligations attach to *distribution* — but shipping the result to other people would put
+the two licences in conflict. Dropping `libs.mlkit.translate` and the `translate` package
+removes it; everything else keeps working, and titles fall back to whatever YouTube
+returns.
 
 This is not a preference. `NewPipeExtractor` is GPLv3 with no linking exception, so any
 APK containing `:engine-extractor` is a combined work that must be GPLv3, and its source

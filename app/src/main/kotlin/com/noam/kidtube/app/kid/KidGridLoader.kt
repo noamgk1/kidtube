@@ -4,6 +4,7 @@ import com.noam.kidtube.core.Channel
 import com.noam.kidtube.core.ChannelId
 import com.noam.kidtube.core.VideoRef
 import com.noam.kidtube.core.store.CatalogStore
+import com.noam.kidtube.core.store.TranslationStore
 import com.noam.kidtube.core.store.WhitelistStore
 
 data class KidGridModel(
@@ -22,6 +23,7 @@ data class KidGridModel(
 class KidGridLoader(
     private val whitelistStore: WhitelistStore,
     private val catalogStore: CatalogStore,
+    private val translationStore: TranslationStore,
 ) {
     fun load(selected: ChannelId?): KidGridModel {
         val snapshot = snapshot()
@@ -50,6 +52,10 @@ class KidGridLoader(
 
         val channels = approved.map { it.first }.sortedBy { it.title }
 
+        // Read once for the whole snapshot rather than per video: it is one file, and a
+        // deeply synced library is hundreds of titles.
+        val hebrew = translationStore.all()
+
         val videos = (approved.flatMap { it.second } + whitelist.singleVideos.values)
             .filterNot { whitelist.isBlocked(it.id) }
             .distinctBy { it.id.value }
@@ -57,6 +63,10 @@ class KidGridLoader(
                 compareByDescending<VideoRef> { it.publishedAtEpochSeconds != null }
                     .thenByDescending { it.publishedAtEpochSeconds ?: 0L },
             )
+            // Swapped in here, at the one place everything the child sees comes from, so
+            // the grid, the channel pages and the child's own search all read the same
+            // title. A title with no translation yet keeps the original.
+            .map { video -> hebrew[video.title]?.let { video.copy(title = it) } ?: video }
 
         return LibrarySnapshot(channels, videos)
     }

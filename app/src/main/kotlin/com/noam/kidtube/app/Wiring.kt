@@ -3,6 +3,8 @@ package com.noam.kidtube.app
 import android.content.Context
 import com.noam.kidtube.app.admin.AdminAuthenticator
 import com.noam.kidtube.app.sync.CatalogSync
+import com.noam.kidtube.app.sync.TitleTranslationPass
+import com.noam.kidtube.app.translate.MlKitTitleTranslator
 import com.noam.kidtube.core.BudgetAccountant
 import com.noam.kidtube.core.Clock
 import com.noam.kidtube.core.Policy
@@ -13,6 +15,7 @@ import com.noam.kidtube.core.store.FileStore
 import com.noam.kidtube.core.store.ResumeStore
 import com.noam.kidtube.core.store.SettingsStore
 import com.noam.kidtube.core.store.SyncStateStore
+import com.noam.kidtube.core.store.TranslationStore
 import com.noam.kidtube.core.store.WatchLedger
 import com.noam.kidtube.core.store.WhitelistStore
 import com.noam.kidtube.engine.ContentSource
@@ -37,6 +40,8 @@ class Graph(
     val budgetStore: BudgetStore,
     val watchLedger: WatchLedger,
     val resumeStore: ResumeStore,
+    val translationStore: TranslationStore,
+    val titleTranslation: TitleTranslationPass,
     val backupCodec: BackupCodec,
     val budgetAccountant: BudgetAccountant,
     val contentSource: ContentSource,
@@ -78,6 +83,7 @@ object Wiring {
         val budgetStore = BudgetStore(files)
         val watchLedger = WatchLedger(files, clock)
         val resumeStore = ResumeStore(files, clock)
+        val translationStore = TranslationStore(files)
 
         // The door ships locked. Only a first run pays for the hash, and paying for it
         // here rather than in the background closes the window in which the admin screen
@@ -97,6 +103,14 @@ object Wiring {
             budgetStore = budgetStore,
             watchLedger = watchLedger,
             resumeStore = resumeStore,
+            translationStore = translationStore,
+            titleTranslation = TitleTranslationPass(
+                whitelistStore = whitelistStore,
+                catalogStore = catalogStore,
+                translationStore = translationStore,
+                settingsStore = settingsStore,
+                translator = MlKitTitleTranslator(),
+            ),
             backupCodec = BackupCodec(whitelistStore, catalogStore, settingsStore, watchLedger),
             budgetAccountant = BudgetAccountant(clock),
             contentSource = engine.contentSource,

@@ -6,6 +6,7 @@ import com.noam.kidtube.core.VideoId
 import com.noam.kidtube.core.VideoRef
 import com.noam.kidtube.core.store.CatalogStore
 import com.noam.kidtube.core.store.FileStore
+import com.noam.kidtube.core.store.TranslationStore
 import com.noam.kidtube.core.store.WhitelistStore
 import java.io.File
 import java.nio.file.Files
@@ -20,7 +21,7 @@ class KidGridLoaderTest {
     private val files = FileStore(root)
     private val whitelistStore = WhitelistStore(files)
     private val catalogStore = CatalogStore(files)
-    private val loader = KidGridLoader(whitelistStore, catalogStore)
+    private val loader = KidGridLoader(whitelistStore, catalogStore, TranslationStore(files))
 
     private val kids = ChannelId("UC_kids")
     private val science = ChannelId("UC_sci")
@@ -124,5 +125,30 @@ class KidGridLoaderTest {
     fun `channels appear in the strip sorted by title`() {
         seed()
         assertEquals(listOf("Kids", "Science"), loader.load(null).channels.map { it.title })
+    }
+
+    // What the child reads. YouTube supplies a creator's own Hebrew title where one
+    // exists; for everything else the on-device translation is swapped in here, at the
+    // single place the child's screens get their content from.
+
+    @Test
+    fun `a translated title is what the child sees`() {
+        val hebrew = "בייבי שארק"
+        val translations = TranslationStore(files)
+        translations.putAll(mapOf("t k1" to hebrew))
+        whitelistStore.addChannel(Channel(kids, "Kids", null, "f1", 1L))
+        catalogStore.save(kids, listOf(video(kids, "k1", 900)))
+
+        val snapshot = KidGridLoader(whitelistStore, catalogStore, translations).snapshot()
+
+        assertEquals(hebrew, snapshot.videos.single().title)
+    }
+
+    @Test
+    fun `an untranslated title keeps the original rather than going blank`() {
+        whitelistStore.addChannel(Channel(kids, "Kids", null, "f1", 1L))
+        catalogStore.save(kids, listOf(video(kids, "k1", 900)))
+
+        assertEquals("t k1", loader.snapshot().videos.single().title)
     }
 }

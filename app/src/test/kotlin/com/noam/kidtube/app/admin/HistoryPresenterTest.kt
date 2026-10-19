@@ -10,6 +10,7 @@ import com.noam.kidtube.core.WatchEntry
 import com.noam.kidtube.core.store.CatalogStore
 import com.noam.kidtube.core.store.FileStore
 import com.noam.kidtube.core.store.WatchLedger
+import com.noam.kidtube.core.store.TranslationStore
 import com.noam.kidtube.core.store.WhitelistStore
 import java.io.File
 import java.nio.file.Files
@@ -85,7 +86,7 @@ class HistoryPresenterTest {
         )
         ledger.append(watched("v1", 0, 10))
 
-        val grid = KidGridLoader(whitelistStore, catalogStore)
+        val grid = KidGridLoader(whitelistStore, catalogStore, TranslationStore(files))
         assertEquals(1, grid.load(null).videos.size)
 
         presenter.block(VideoId("v1"))

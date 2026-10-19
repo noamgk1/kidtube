@@ -20,6 +20,9 @@ class SyncWorker(
     override suspend fun doWork(): Result {
         val graph = Wiring.graph(applicationContext)
         val results = graph.catalogSync.refreshAll()
+        // Yesterday's uploads arrive with English titles; translate them in the same
+        // background pass rather than leaving the child a mixed-language screen.
+        graph.titleTranslation.run()
         graph.watchLedger.rotate()
         return if (results.values.any { it.isFailure }) Result.retry() else Result.success()
     }
