@@ -84,7 +84,7 @@ fun EmptyLibraryMessage(modifier: Modifier = Modifier) {
             textAlign = TextAlign.Center,
         )
         Text(
-            text = "הורים: החזיקו שלוש שניות על הפינה כדי להוסיף ערוצים",
+            text = "הורים: הקישו על \"הורים\" למעלה כדי להוסיף ערוצים",
             style = MaterialTheme.typography.bodyLarge,
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 12.dp),

@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -18,6 +20,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 
@@ -29,6 +32,17 @@ fun AdminGate(
 ) {
     var password by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
+
+    // One definition of "try this password", so the button and the keyboard's own enter
+    // key do the same thing. On a tablet the keyboard covers the button, and a parent
+    // should not have to dismiss it to press something they cannot see.
+    fun submit() {
+        if (authenticator.authenticate(password.toCharArray())) {
+            onUnlocked()
+        } else {
+            error = "סיסמה שגויה"
+        }
+    }
 
     Column(
         modifier = Modifier.fillMaxSize().padding(32.dp),
@@ -45,6 +59,8 @@ fun AdminGate(
             label = { Text("סיסמה") },
             visualTransformation = PasswordVisualTransformation(),
             singleLine = true,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
+            keyboardActions = KeyboardActions(onGo = { submit() }),
             modifier = Modifier.width(320.dp).padding(top = 24.dp).testTag("admin-password"),
         )
 
@@ -59,13 +75,7 @@ fun AdminGate(
         }
 
         Button(
-            onClick = {
-                if (authenticator.authenticate(password.toCharArray())) {
-                    onUnlocked()
-                } else {
-                    error = "סיסמה שגויה"
-                }
-            },
+            onClick = { submit() },
             modifier = Modifier.padding(top = 16.dp),
         ) {
             Text("כניסה")

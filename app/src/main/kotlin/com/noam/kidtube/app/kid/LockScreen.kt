@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -15,11 +14,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 
 /**
- * The end of the day's allowance. Deliberately dull and with no button: the only way off
- * this screen is the hidden admin corner, which still needs the password.
+ * The end of the day's allowance. Deliberately dull: nothing here entertains, and the
+ * only way off it is the parent's button, which still needs the password.
  */
 @Composable
-fun LockScreen(onAdminLongPress: () -> Unit) {
+fun LockScreen(onOpenAdmin: () -> Unit) {
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier.fillMaxSize().padding(32.dp),
@@ -39,12 +38,11 @@ fun LockScreen(onAdminLongPress: () -> Unit) {
             )
         }
 
-        // The admin corner: no ripple, no affordance, a deliberate three-second hold.
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .size(72.dp)
-                .adminHold(onTriggered = onAdminLongPress),
+        // A parent who wants to grant extra minutes needs a way in from here, and the
+        // password is what stops the child using it.
+        KidTopBar(
+            onOpenAdmin = onOpenAdmin,
+            modifier = Modifier.align(Alignment.TopCenter),
         )
     }
 }

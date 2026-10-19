@@ -3,11 +3,14 @@ package com.noam.kidtube.app.admin
 import com.noam.kidtube.app.sync.CatalogSync
 import com.noam.kidtube.core.Channel
 import com.noam.kidtube.core.ChannelId
+import com.noam.kidtube.core.VideoId
+import com.noam.kidtube.core.VideoRef
 import com.noam.kidtube.core.Clock
 import com.noam.kidtube.core.store.CatalogStore
 import com.noam.kidtube.core.store.FileStore
 import com.noam.kidtube.core.store.SyncStateStore
 import com.noam.kidtube.core.store.WhitelistStore
+import com.noam.kidtube.engine.SearchResult
 import com.noam.kidtube.engine.UnsupportedReason
 import com.noam.kidtube.engine.fake.FakeContentSource
 import kotlinx.coroutines.test.runTest
@@ -19,6 +22,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 private object AddClock : Clock {
@@ -132,5 +136,107 @@ class AddFlowTest {
         whitelistStore.addChannel(channel)
         assertFalse(flow.confirmChannel(channel))
         assertEquals(1, whitelistStore.load().channels.size)
+    }
+
+    // Searching YouTube from the parent screen. This is the one place in the app that
+    // queries YouTube for something that is not yet approved, which is why it sits behind
+    // the password and why finding something approves nothing on its own.
+
+    @Test
+    fun `a search returns what YouTube gave back`() = runTest {
+        val hit = SearchResult.ChannelHit(
+            Channel(ChannelId("UC_found"), "Found Channel", null, "feed", 10L),
+        )
+        source.scriptSearch("kids songs", listOf(hit))
+
+        val page = flow.search("kids songs").getOrThrow()
+
+        assertEquals(listOf(hit), page.results)
+    }
+
+    @Test
+    fun `an empty query asks YouTube nothing at all`() = runTest {
+        val page = flow.search("   ").getOrThrow()
+
+        assertTrue(page.results.isEmpty())
+    }
+
+    @Test
+    fun `finding a channel does not approve it`() = runTest {
+        source.scriptSearch(
+            "kids songs",
+            listOf(
+                SearchResult.ChannelHit(
+                    Channel(ChannelId("UC_found"), "Found Channel", null, "feed", 10L),
+                ),
+            ),
+        )
+
+        flow.search("kids songs").getOrThrow()
+
+        assertTrue(
+            whitelistStore.load().channels.isEmpty(),
+            "a search result the parent has not ticked must not reach the whitelist",
+        )
+    }
+
+    @Test
+    fun `approving a channel from a search re-resolves it first`() = runTest {
+        val fromSearch = Channel(ChannelId("UC_found"), "Stale Title", null, "", 10L)
+        val resolved = Channel(ChannelId("UC_found"), "Real Title", null, "real-feed", 99L)
+        source.scriptChannel("https://www.youtube.com/channel/UC_found", resolved)
+
+        val added = flow.approveFromSearch(SearchResult.ChannelHit(fromSearch)).getOrThrow()
+        assertEquals(resolved, added, "the caller needs the resolved channel to sync it")
+
+        val stored = whitelistStore.load().channels.getValue("UC_found")
+        assertEquals("Real Title", stored.title, "the title must come from the channel, not the hit")
+        assertEquals("real-feed", stored.feedUrl, "a search hit carries no feed of its own")
+    }
+
+    @Test
+    fun `approving a channel twice reports that there was nothing to add`() = runTest {
+        val resolved = Channel(ChannelId("UC_found"), "Real", null, "feed", 1L)
+        source.scriptChannel("https://www.youtube.com/channel/UC_found", resolved)
+        val hit = SearchResult.ChannelHit(resolved)
+
+        flow.approveFromSearch(hit).getOrThrow()
+
+        assertNull(
+            flow.approveFromSearch(hit).getOrThrow(),
+            "a second approval must not restart the catalog sync",
+        )
+    }
+
+    @Test
+    fun `approving a channel that has vanished since the search fails`() = runTest {
+        val gone = Channel(ChannelId("UC_gone"), "Gone", null, "", 1L)
+
+        assertTrue(flow.approveFromSearch(SearchResult.ChannelHit(gone)).isFailure)
+        assertTrue(whitelistStore.load().channels.isEmpty())
+    }
+
+    @Test
+    fun `approving one video from a search grants nothing else from its channel`() = runTest {
+        val hit = SearchResult.VideoHit(
+            video = VideoRef(
+                VideoId("v_found"),
+                ChannelId("UC_someone"),
+                "A Song",
+                "https://thumb",
+                120L,
+                500L,
+            ),
+            channelTitle = "Someone",
+        )
+
+        assertTrue(flow.approveFromSearch(hit))
+
+        val whitelist = whitelistStore.load()
+        assertTrue(whitelist.channels.isEmpty(), "the channel it came from stays unapproved")
+        val stored = whitelist.singleVideos.getValue("v_found")
+        assertEquals("", stored.channelId.value)
+        assertEquals("https://thumb", stored.thumbnailUrl, "the real thumbnail is kept")
+        assertEquals(120L, stored.durationSeconds)
     }
 }

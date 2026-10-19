@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The app's mark, matching the launcher icon.
+
+  A red rounded rectangle with a white play triangle, on its own, is essentially
+  YouTube's mark. The star is what makes this one its own: a rounded square rather than
+  a wide rectangle, and a children's badge over its shoulder.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="40dp"
+    android:height="40dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+
+    <path
+        android:fillColor="@color/kidtube_red"
+        android:pathData="M12,4 L36,4 A10,10 0 0 1 46,14 L46,34 A10,10 0 0 1 36,44 L12,44 A10,10 0 0 1 2,34 L2,14 A10,10 0 0 1 12,4 Z" />
+
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M20,17.5 C20,15.6 22,14.5 23.6,15.4 L33.4,21.1 C35,22 35,24.3 33.4,25.2 L23.6,30.9 C22,31.8 20,30.7 20,28.8 Z" />
+
+    <path
+        android:fillColor="#FFD54F"
+        android:pathData="M14,30 L15.6,34.3 L20.2,34.5 L16.6,37.4 L17.8,41.8 L14,39.2 L10.2,41.8 L11.4,37.4 L7.8,34.5 L12.4,34.3 Z" />
+</vector>

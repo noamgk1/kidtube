@@ -1,5 +1,6 @@
 package com.noam.kidtube.app
 
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
@@ -31,6 +32,7 @@ import com.noam.kidtube.app.admin.AdminAuthenticator
 import com.noam.kidtube.app.admin.AdminContentScreen
 import com.noam.kidtube.app.admin.AdminGate
 import com.noam.kidtube.app.admin.AdminHistoryScreen
+import com.noam.kidtube.app.admin.AdminSearchScreen
 import com.noam.kidtube.app.admin.AdminStatusScreen
 import com.noam.kidtube.app.admin.AdminTimeScreen
 import com.noam.kidtube.app.admin.CatalogPresenter
@@ -42,6 +44,7 @@ import com.noam.kidtube.app.admin.StatusPresenter
 import com.noam.kidtube.app.admin.StatusView
 import com.noam.kidtube.app.admin.TimePresenter
 import com.noam.kidtube.app.admin.TimeView
+import com.noam.kidtube.app.admin.searchKeyOf
 import com.noam.kidtube.app.kid.CalmErrorCard
 import com.noam.kidtube.app.kid.HomeSection
 import com.noam.kidtube.app.kid.HomeSections
@@ -66,6 +69,8 @@ import com.noam.kidtube.core.DenyReason
 import com.noam.kidtube.core.SyncState
 import com.noam.kidtube.core.Whitelist
 import com.noam.kidtube.core.today
+import com.noam.kidtube.engine.Cursor
+import com.noam.kidtube.engine.SearchResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -77,6 +82,9 @@ private const val TICK_INTERVAL_MS = 15_000L
 
 /** How often the parent's content screen re-reads sync progress while it is open. */
 private const val SYNC_POLL_INTERVAL_MS = 2_000L
+
+/** The last tab is the way out, not a screen. */
+private const val EXIT_TAB = 5
 
 /**
  * One read of the library, shared by all three of the child's destinations.
@@ -141,6 +149,18 @@ fun AppNavigation(graph: Graph) {
         screen = if (remaining <= 0) AppScreen.LOCKED else AppScreen.GRID
     }
 
+    // One definition of "leave the parent screen", so the tab and the back gesture agree.
+    val leaveAdmin: () -> Unit = {
+        scope.launch {
+            refreshKey++
+            val remaining = withContext(Dispatchers.IO) { remainingSecondsToday(graph) }
+            warning = TimeLimitPresenter.stateFor(remaining)
+            // A parent who granted bonus minutes expects the child back on the grid.
+            screen = if (remaining <= 0) AppScreen.LOCKED else AppScreen.GRID
+        }
+        Unit
+    }
+
     // The player's own state is the authority on what is happening. Nothing observed it
     // before, so a finished video sat on screen and the retry-once rule was unreachable.
     LaunchedEffect(controller) {
@@ -191,6 +211,33 @@ fun AppNavigation(graph: Graph) {
             lifecycleOwner.lifecycle.removeObserver(observer)
             controller.release()
             graph.releaseEngine()
+        }
+    }
+
+    // Back must not be a way out of the app. A child pressing it used to land on the
+    // Android launcher with the whole tablet in front of them, which undoes the point of
+    // the app; inside, it is the ordinary "up" that every screen here already has.
+    BackHandler {
+        when (screen) {
+            AppScreen.PLAYER -> {
+                scope.launch {
+                    coordinator.onEnded(completed = false)
+                    controller.pause()
+                    refreshKey++
+                    screen = AppScreen.GRID
+                }
+                Unit
+            }
+
+            AppScreen.ERROR -> screen = AppScreen.GRID
+            AppScreen.ADMIN_GATE -> screen = gateReturnsTo
+            AppScreen.ADMIN -> leaveAdmin()
+
+            // A channel page goes up to the shell; the shell itself is the floor.
+            AppScreen.GRID -> if (openChannel != null) openChannel = null
+
+            // The lock screen and the first frame swallow it outright.
+            AppScreen.LOCKED, null -> Unit
         }
     }
 
@@ -256,7 +303,7 @@ fun AppNavigation(graph: Graph) {
                                 }
                             }
                         },
-                        onAdminHold = {
+                        onOpenAdmin = {
                             gateReturnsTo = AppScreen.GRID
                             screen = AppScreen.ADMIN_GATE
                         },
@@ -280,7 +327,7 @@ fun AppNavigation(graph: Graph) {
                 AppScreen.ERROR -> CalmErrorCard(errorMessage) { screen = AppScreen.GRID }
 
                 AppScreen.LOCKED -> LockScreen(
-                    onAdminLongPress = {
+                    onOpenAdmin = {
                         // Returning here on cancel is what makes this a lock rather than advice.
                         gateReturnsTo = AppScreen.LOCKED
                         screen = AppScreen.ADMIN_GATE
@@ -293,15 +340,7 @@ fun AppNavigation(graph: Graph) {
                     onCancel = { screen = gateReturnsTo },
                 )
 
-                AppScreen.ADMIN -> AdminHost(graph, authenticator) {
-                    scope.launch {
-                        refreshKey++
-                        val remaining = withContext(Dispatchers.IO) { remainingSecondsToday(graph) }
-                        warning = TimeLimitPresenter.stateFor(remaining)
-                        // A parent who granted bonus minutes expects the child back on the grid.
-                        screen = if (remaining <= 0) AppScreen.LOCKED else AppScreen.GRID
-                    }
-                }
+                AppScreen.ADMIN -> AdminHost(graph, authenticator, onExit = leaveAdmin)
             }
         }
     }
@@ -314,6 +353,115 @@ private fun remainingSecondsToday(graph: Graph): Int {
     )
     val limitSeconds = graph.settingsStore.load().dailyLimitMinutes * 60
     return graph.budgetAccountant.remainingSeconds(budget, limitSeconds)
+}
+
+/**
+ * Drives the parent's YouTube search.
+ *
+ * The approve step deliberately runs on the graph's own scope for channels: confirming
+ * one kicks off a deep sync that runs for minutes, and it must not die because the
+ * parent moved to another tab.
+ */
+@Composable
+private fun AdminSearchHost(
+    graph: Graph,
+    addFlow: AddFlow,
+    modifier: Modifier,
+    onChanged: () -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+
+    var query by remember { mutableStateOf("") }
+    var submitted by remember { mutableStateOf("") }
+    var searching by remember { mutableStateOf(false) }
+    var results by remember { mutableStateOf<List<SearchResult>>(emptyList()) }
+    var nextCursor by remember { mutableStateOf<Cursor?>(null) }
+    var selected by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var notice by remember { mutableStateOf<String?>(null) }
+    var approvedVersion by remember { mutableStateOf(0) }
+
+    // What is already on the whitelist, so a hit the parent approved earlier shows as
+    // approved instead of inviting them to approve it twice.
+    val approvedKeys by produceState(emptySet<String>(), approvedVersion) {
+        value = withContext(Dispatchers.IO) {
+            val whitelist = graph.whitelistStore.load()
+            whitelist.channels.keys.map { "c:" + it }.toSet() +
+                whitelist.singleVideos.keys.map { "v:" + it }.toSet()
+        }
+    }
+
+    fun runSearch(cursor: Cursor?) {
+        scope.launch {
+            searching = true
+            notice = null
+            val outcome = addFlow.search(submitted, cursor)
+            searching = false
+            outcome.fold(
+                onSuccess = { page ->
+                    results = if (cursor == null) page.results else results + page.results
+                    nextCursor = page.next
+                    if (results.isEmpty()) notice = "לא נמצאו תוצאות"
+                },
+                onFailure = { cause ->
+                    notice = "החיפוש נכשל: " + (cause.message ?: "לא ידוע")
+                },
+            )
+        }
+    }
+
+    AdminSearchScreen(
+        query = query,
+        onQueryChange = { query = it },
+        onSearch = {
+            submitted = query
+            selected = emptySet()
+            results = emptyList()
+            nextCursor = null
+            runSearch(null)
+        },
+        searching = searching,
+        results = results,
+        selected = selected,
+        onToggle = { result ->
+            val key = searchKeyOf(result)
+            selected = if (key in selected) selected - key else selected + key
+        },
+        approvedKeys = approvedKeys,
+        onApproveSelected = {
+            val picked = results.filter { searchKeyOf(it) in selected }
+            selected = emptySet()
+            scope.launch {
+                var failures = 0
+                picked.forEach { result ->
+                    when (result) {
+                        is SearchResult.ChannelHit ->
+                            addFlow.approveFromSearch(result).fold(
+                                onSuccess = { added ->
+                                    // The approval is done; the catalog sync that follows
+                                    // runs for minutes, so it goes somewhere that outlives
+                                    // this screen.
+                                    if (added != null) {
+                                        graph.appScope.launch {
+                                            graph.catalogSync.deepSync(added.id)
+                                        }
+                                    }
+                                },
+                                onFailure = { failures++ },
+                            )
+
+                        is SearchResult.VideoHit ->
+                            withContext(Dispatchers.IO) { addFlow.approveFromSearch(result) }
+                    }
+                }
+                notice = if (failures > 0) "חלק מהפריטים לא נוספו" else null
+                approvedVersion++
+                onChanged()
+            }
+        },
+        onLoadMore = nextCursor?.let { cursor -> { runSearch(cursor) } },
+        notice = notice,
+        modifier = modifier,
+    )
 }
 
 @Composable
@@ -399,10 +547,11 @@ private fun AdminHost(graph: Graph, authenticator: AdminAuthenticator, onExit: (
     Scaffold(
         topBar = {
             TabRow(selectedTabIndex = tab) {
-                listOf("תכנים", "זמן", "היסטוריה", "הגדרות", "יציאה").forEachIndexed { index, label ->
+                listOf("תכנים", "חיפוש", "זמן", "היסטוריה", "הגדרות", "יציאה")
+                    .forEachIndexed { index, label ->
                     Tab(
                         selected = tab == index,
-                        onClick = { if (index == 4) onExit() else tab = index },
+                        onClick = { if (index == EXIT_TAB) onExit() else tab = index },
                         text = { Text(label) },
                     )
                 }
@@ -503,7 +652,9 @@ private fun AdminHost(graph: Graph, authenticator: AdminAuthenticator, onExit: (
                 }
             }
 
-            1 -> {
+            1 -> AdminSearchHost(graph, addFlow, content) { version++ }
+
+            2 -> {
                 val view by produceState(TimeView(0, 0, 0), version) {
                     value = withContext(Dispatchers.IO) { timePresenter.view() }
                 }
@@ -527,7 +678,7 @@ private fun AdminHost(graph: Graph, authenticator: AdminAuthenticator, onExit: (
                 )
             }
 
-            2 -> {
+            3 -> {
                 val rows by produceState(emptyList<HistoryRow>(), version) {
                     value = withContext(Dispatchers.IO) { historyPresenter.rows() }
                 }
@@ -549,7 +700,7 @@ private fun AdminHost(graph: Graph, authenticator: AdminAuthenticator, onExit: (
                 )
             }
 
-            3 -> {
+            4 -> {
                 val view by produceState(
                     StatusView(graph.engineHealth.value, emptyList(), emptyList()),
                     version,

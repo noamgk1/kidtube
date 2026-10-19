@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The app's red. Warmer and a shade darker than YouTube's, so the icon reads as a
+         video app on the home screen without borrowing someone else's mark. -->
+    <color name="kidtube_red">#FFE03131</color>
+    <color name="kidtube_red_dark">#FFB02020</color>
+</resources>

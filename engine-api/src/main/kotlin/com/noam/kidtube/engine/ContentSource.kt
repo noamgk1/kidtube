@@ -25,6 +25,23 @@ sealed class ChannelResolutionError(message: String) : Exception(message) {
         ChannelResolutionError("could not reach: " + url + " (" + cause.message + ")")
 }
 
+/**
+ * One thing a parent could approve out of a search.
+ *
+ * Search exists on the parent's side only. The child's search filters the approved
+ * library and never leaves the device; this one really does query YouTube, which is
+ * exactly why it is behind the password. Nothing here is approved by being found - the
+ * parent ticks what they want, and only that reaches the whitelist.
+ */
+sealed interface SearchResult {
+    data class ChannelHit(val channel: Channel) : SearchResult
+
+    /** A single video, with the channel it came from so the parent can judge it. */
+    data class VideoHit(val video: VideoRef, val channelTitle: String) : SearchResult
+}
+
+data class SearchPage(val results: List<SearchResult>, val next: Cursor?)
+
 interface ContentSource {
     suspend fun resolveChannel(url: String): Result<Channel>
 
@@ -33,4 +50,7 @@ interface ContentSource {
 
     /** The cheap daily path: one request against the channel's RSS feed. */
     suspend fun latestVideos(channelId: ChannelId, feedUrl: String): Result<List<VideoRef>>
+
+    /** Searches YouTube on the parent's behalf. Pass null for the first page. */
+    suspend fun search(query: String, cursor: Cursor?): Result<SearchPage>
 }

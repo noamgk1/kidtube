@@ -9,6 +9,8 @@ import com.noam.kidtube.engine.ChannelUrlParser
 import com.noam.kidtube.engine.ContentSource
 import com.noam.kidtube.engine.Cursor
 import com.noam.kidtube.engine.PastedLink
+import com.noam.kidtube.engine.SearchPage
+import com.noam.kidtube.engine.SearchResult
 import com.noam.kidtube.engine.VideoPage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -21,7 +23,9 @@ import org.schabi.newpipe.extractor.channel.tabs.ChannelTabInfo
 import org.schabi.newpipe.extractor.channel.tabs.ChannelTabs
 import org.schabi.newpipe.extractor.downloader.Downloader
 import org.schabi.newpipe.extractor.exceptions.ContentNotAvailableException
+import org.schabi.newpipe.extractor.channel.ChannelInfoItem
 import org.schabi.newpipe.extractor.linkhandler.ListLinkHandler
+import org.schabi.newpipe.extractor.search.SearchInfo
 import org.schabi.newpipe.extractor.stream.StreamInfoItem
 import org.schabi.newpipe.extractor.stream.StreamType
 import org.schabi.newpipe.extractor.services.youtube.PoTokenProvider
@@ -134,6 +138,92 @@ internal class ExtractorContentSource(
         runCatching { RssFeedParser.parse(httpGet(feedUrl)) }
     }
 
+    /**
+     * Searches YouTube for the parent.
+     *
+     * Only channels and videos come back. A playlist hit is dropped rather than shown:
+     * approving one would mean approving a list whose owner can add to it afterwards,
+     * which is a hole in the whitelist rather than a feature of it.
+     */
+    override suspend fun search(query: String, cursor: Cursor?): Result<SearchPage> =
+        withContext(Dispatchers.IO) {
+            ExtractorInit.ensureInitialised(downloader, poTokenProvider)
+
+            runCatching {
+                val handler = youtube.searchQHFactory.fromQuery(query)
+                if (cursor == null) {
+                    val info = SearchInfo.getInfo(youtube, handler)
+                    toSearchPage(info.relatedItems, info.nextPage)
+                } else {
+                    val page = pages[cursor.token]
+                        ?: error("unknown search cursor: " + cursor.token)
+                    val more = SearchInfo.getMoreItems(youtube, handler, page)
+                    toSearchPage(more.items, more.nextPage)
+                }
+            }
+        }
+
+    private fun toSearchPage(items: List<InfoItem>, next: Page?): SearchPage {
+        val results = items.mapNotNull { item ->
+            when (item) {
+                is ChannelInfoItem -> {
+                    val id = item.url.substringAfterLast('/')
+                    // The same rule as a pasted link: everything downstream keys off a
+                    // canonical UC id, so a hit that does not resolve to one is dropped
+                    // rather than offered and then stored under a handle.
+                    if (ChannelUrlParser.isCanonicalChannelId(id)) {
+                        SearchResult.ChannelHit(
+                            Channel(
+                                id = ChannelId(id),
+                                title = item.name.orEmpty(),
+                                avatarUrl = item.thumbnails.firstOrNull()?.url,
+                                feedUrl = FEED_URL_PREFIX + id,
+                                subscriberCount = item.subscriberCount.coerceAtLeast(0),
+                            ),
+                        )
+                    } else {
+                        null
+                    }
+                }
+
+                is StreamInfoItem -> {
+                    val videoId = videoIdFrom(item.url)
+                    val channelId = item.uploaderUrl?.substringAfterLast('/').orEmpty()
+                    // A video whose uploader cannot be pinned down would be approved
+                    // without the channel it belongs to, and Policy checks both.
+                    if (videoId.isNotBlank() &&
+                        ChannelUrlParser.isCanonicalChannelId(channelId) &&
+                        item.streamType != StreamType.LIVE_STREAM
+                    ) {
+                        SearchResult.VideoHit(
+                            video = VideoRef(
+                                id = VideoId(videoId),
+                                channelId = ChannelId(channelId),
+                                title = item.name.orEmpty(),
+                                thumbnailUrl = item.thumbnails.firstOrNull()?.url,
+                                durationSeconds = item.duration.takeIf { it > 0 },
+                                publishedAtEpochSeconds =
+                                    item.uploadDate?.offsetDateTime()?.toEpochSecond(),
+                            ),
+                            channelTitle = item.uploaderName.orEmpty(),
+                        )
+                    } else {
+                        null
+                    }
+                }
+
+                else -> null
+            }
+        }
+
+        val nextCursor = next?.let {
+            val token = "s" + cursorSequence.incrementAndGet()
+            pages[token] = it
+            Cursor(token)
+        }
+        return SearchPage(results, nextCursor)
+    }
+
     private fun toPage(
         channelId: ChannelId,
         items: List<InfoItem>,
@@ -169,6 +259,13 @@ internal class ExtractorContentSource(
     private fun channelUrl(channelId: ChannelId) =
         "https://www.youtube.com/channel/" + channelId.value
 }
+
+/**
+ * YouTube's per-channel RSS feed. The same URL `resolveChannel` reads off ChannelInfo;
+ * constructed here because a search hit carries no feed of its own, and re-resolved for
+ * real when the parent actually approves the channel.
+ */
+private const val FEED_URL_PREFIX = "https://www.youtube.com/feeds/videos.xml?channel_id="
 
 private val feedClient by lazy { OkHttpClient() }
 

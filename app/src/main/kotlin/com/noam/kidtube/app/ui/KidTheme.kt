@@ -10,27 +10,34 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
 /**
- * A warm, high-contrast palette rather than Material's default purple.
+ * Red on near-white, the way every video app the child has already seen looks.
+ *
+ * Borrowing the shape of a familiar interface is the point - a child who has watched
+ * YouTube over a parent's shoulder knows what a red accent and a row of thumbnails mean -
+ * but the red is the app's own, a warmer and slightly darker one, because imitating
+ * someone else's mark is a different thing from looking familiar.
  *
  * Light only, deliberately: a dark theme on a child's tablet mostly makes thumbnails
- * harder to tell apart, and the grid is almost entirely pictures.
+ * harder to tell apart, and the screen is almost entirely pictures.
  */
 private val KidColors = lightColorScheme(
-    primary = Color(0xFF00629E),
+    primary = Color(0xFFE03131),
     onPrimary = Color.White,
-    primaryContainer = Color(0xFFCFE5FF),
-    onPrimaryContainer = Color(0xFF001D33),
-    secondary = Color(0xFFFF8A3D),
+    primaryContainer = Color(0xFFFFDAD6),
+    onPrimaryContainer = Color(0xFF410002),
+    secondary = Color(0xFF00629E),
     onSecondary = Color.White,
-    secondaryContainer = Color(0xFFFFDCC6),
-    onSecondaryContainer = Color(0xFF2F1500),
-    background = Color(0xFFFCFCFF),
-    onBackground = Color(0xFF1A1C1E),
-    surface = Color(0xFFFCFCFF),
-    onSurface = Color(0xFF1A1C1E),
-    surfaceVariant = Color(0xFFDEE3EB),
-    onSurfaceVariant = Color(0xFF42474E),
-    outline = Color(0xFF72777F),
+    secondaryContainer = Color(0xFFCFE5FF),
+    onSecondaryContainer = Color(0xFF001D33),
+    background = Color(0xFFFDFCFC),
+    onBackground = Color(0xFF1B1B1B),
+    surface = Color(0xFFFDFCFC),
+    onSurface = Color(0xFF1B1B1B),
+    // The ground a thumbnail sits on before it loads, so it is a neutral grey rather than
+    // a tint that fights whatever image arrives.
+    surfaceVariant = Color(0xFFE6E2E1),
+    onSurfaceVariant = Color(0xFF4A4544),
+    outline = Color(0xFF7D7574),
     error = Color(0xFFBA1A1A),
     onError = Color.White,
 )

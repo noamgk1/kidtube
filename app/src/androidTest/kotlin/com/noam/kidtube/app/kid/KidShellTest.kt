@@ -22,7 +22,7 @@ import com.noam.kidtube.core.VideoRef
 import org.junit.Rule
 import org.junit.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 /** Design spec section 13: the kid UI must offer no path to a blocked or unapproved video. */
 class KidShellTest {
@@ -43,7 +43,7 @@ class KidShellTest {
     @Composable
     private fun Shell(
         onPlay: (VideoRef) -> Unit = {},
-        onAdminHold: () -> Unit = {},
+        onOpenAdmin: () -> Unit = {},
         library: LibrarySnapshot = snapshot,
     ) {
         var destination by remember { mutableStateOf(KidDestination.HOME) }
@@ -60,7 +60,7 @@ class KidShellTest {
             query = query,
             onQueryChange = { query = it },
             onPlay = onPlay,
-            onAdminHold = onAdminHold,
+            onOpenAdmin = onOpenAdmin,
         )
     }
 
@@ -149,15 +149,19 @@ class KidShellTest {
         ).assertIsDisplayed()
     }
 
-    /** A child poking at the admin door must not open it. */
+    /**
+     * The parent's way in is a plain button now. What guards the parent screens is the
+     * password behind it, not the button being hard to find - which it was, for the
+     * parent as much as for the child.
+     */
     @Test
-    fun aTapOnTheAdminDoorDoesNothing() {
+    fun theParentButtonAsksToOpenTheParentScreen() {
         var opened = false
-        compose.setContent { Shell(onAdminHold = { opened = true }) }
+        compose.setContent { Shell(onOpenAdmin = { opened = true }) }
 
-        compose.onNodeWithTag("admin-door").performClick()
+        compose.onNodeWithTag("parent-button").performClick()
 
-        assertFalse(opened, "a half-second poke must not reach the parent's screens")
+        assertTrue(opened)
     }
 
     @Test

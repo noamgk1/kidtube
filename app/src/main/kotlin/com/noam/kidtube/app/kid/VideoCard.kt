@@ -117,7 +117,7 @@ fun VideoCard(
                         modifier = Modifier
                             .fillMaxWidth(progress)
                             .fillMaxSize()
-                            .background(MaterialTheme.colorScheme.secondary),
+                            .background(MaterialTheme.colorScheme.primary),
                     )
                 }
             }

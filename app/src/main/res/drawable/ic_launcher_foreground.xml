@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The launcher foreground: a play triangle with a star over its shoulder.
+
+  Adaptive icons are a 108dp canvas of which only the middle 72dp is guaranteed to
+  survive the launcher's mask, so every drawn shape here stays inside roughly 30..78.
+  Deliberately not YouTube's mark: a generic play shape, the app's own colours.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- The play triangle, corners rounded so it reads as friendly rather than sharp. -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M44,37.5 C44,34.7 47,33 49.4,34.4 L75,50.9 C77.3,52.3 77.3,55.7 75,57.1 L49.4,73.6 C47,75 44,73.3 44,70.5 Z" />
+
+    <!-- A star, because this is a children's app and the triangle alone says nothing. -->
+    <path
+        android:fillColor="#FFD54F"
+        android:pathData="M37,32 L39.3,38.2 L45.9,38.5 L40.7,42.6 L42.5,49 L37,45.3 L31.5,49 L33.3,42.6 L28.1,38.5 L34.7,38.2 Z" />
+</vector>
