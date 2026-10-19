@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import com.noam.kidtube.core.Channel
 import com.noam.kidtube.core.VideoRef
+import com.noam.kidtube.core.VideoSort
 
 enum class KidDestination { HOME, CHANNELS, SEARCH }
 
@@ -35,6 +36,8 @@ fun KidShell(
     onDestinationChange: (KidDestination) -> Unit,
     snapshot: LibrarySnapshot,
     home: HomeScreenModel,
+    sort: VideoSort,
+    onSortChange: (VideoSort) -> Unit,
     resumePositions: Map<String, Long>,
     openChannel: Channel?,
     onOpenChannel: (Channel?) -> Unit,
@@ -73,6 +76,8 @@ fun KidShell(
                         KidDestination.HOME -> KidHomeScreen(
                             model = home,
                             resumePositions = resumePositions,
+                            sort = sort,
+                            onSortChange = onSortChange,
                             onPlay = onPlay,
                         )
 

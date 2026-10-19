@@ -16,6 +16,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.noam.kidtube.app.ui.formatCount
@@ -23,6 +24,8 @@ import com.noam.kidtube.core.BidiText
 import com.noam.kidtube.core.Channel
 import com.noam.kidtube.core.ChannelId
 import com.noam.kidtube.core.SyncState
+import com.noam.kidtube.core.VideoId
+import com.noam.kidtube.core.VideoRef
 import com.noam.kidtube.engine.UnsupportedReason
 
 /** Hebrew wording for every refusal the parser can produce. */
@@ -50,6 +53,9 @@ fun AdminContentScreen(
     onOpenChannel: (ChannelId) -> Unit,
     onRebuild: (ChannelId) -> Unit,
     onRemove: (ChannelId) -> Unit,
+    /** Videos approved on their own, which until now had no way off the list at all. */
+    singleVideos: List<VideoRef>,
+    onRemoveSingleVideo: (VideoId) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxSize().padding(16.dp)) {
@@ -116,6 +122,10 @@ fun AdminContentScreen(
         }
 
         LazyColumn(modifier = Modifier.fillMaxSize().padding(top = 24.dp)) {
+            if (channels.isNotEmpty()) {
+                item { SectionLabel("ערוצים מאושרים") }
+            }
+
             items(channels, key = { it.id.value }) { channel ->
                 val state = syncStates[channel.id.value]
                 Card(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
@@ -149,6 +159,48 @@ fun AdminContentScreen(
                     }
                 }
             }
+
+            if (singleVideos.isNotEmpty()) {
+                item { SectionLabel("סרטונים בודדים") }
+            }
+
+            items(singleVideos, key = { it.id.value }) { video ->
+                Card(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = BidiText.isolate(video.title),
+                                style = MaterialTheme.typography.titleMedium,
+                            )
+                            Text(
+                                // So a parent can tell two similarly named clips apart,
+                                // and match one against YouTube if they need to.
+                                text = video.id.value,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        TextButton(
+                            onClick = { onRemoveSingleVideo(video.id) },
+                            modifier = Modifier.testTag("remove-" + video.id.value),
+                        ) {
+                            Text("הסר")
+                        }
+                    }
+                }
+            }
         }
     }
+}
+
+@Composable
+private fun SectionLabel(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleLarge,
+        modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
+    )
 }

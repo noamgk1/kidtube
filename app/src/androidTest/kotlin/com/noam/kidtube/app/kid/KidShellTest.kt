@@ -19,6 +19,7 @@ import com.noam.kidtube.core.Channel
 import com.noam.kidtube.core.ChannelId
 import com.noam.kidtube.core.VideoId
 import com.noam.kidtube.core.VideoRef
+import com.noam.kidtube.core.VideoSort
 import org.junit.Rule
 import org.junit.Test
 import kotlin.test.assertEquals
@@ -49,11 +50,14 @@ class KidShellTest {
         var destination by remember { mutableStateOf(KidDestination.HOME) }
         var openChannel by remember { mutableStateOf<Channel?>(null) }
         var query by remember { mutableStateOf("") }
+        var sort by remember { mutableStateOf(VideoSort.NEWEST) }
         KidShell(
             destination = destination,
             onDestinationChange = { destination = it },
             snapshot = library,
-            home = HomeSections.build(library, emptyList()),
+            home = HomeSections.build(library, emptyList(), sort),
+            sort = sort,
+            onSortChange = { sort = it },
             resumePositions = emptyMap(),
             openChannel = openChannel,
             onOpenChannel = { openChannel = it },
@@ -79,6 +83,25 @@ class KidShellTest {
 
         compose.onAllNodesWithTag("video-tile").assertCountEquals(0)
         compose.onNodeWithText("עדיין אין כאן סרטונים").assertIsDisplayed()
+    }
+
+    /** The child's own way of looking through the library. */
+    @Test
+    fun theSortChipsReorderTheGrid() {
+        val longOld = VideoRef(VideoId("long"), kids, "Long Old", null, 600L, 100L)
+        val shortNew = VideoRef(VideoId("short"), kids, "Short New", null, 60L, 900L)
+        compose.setContent {
+            Shell(library = LibrarySnapshot(listOf(kidsChannel), listOf(longOld, shortNew)))
+        }
+
+        // Newest first by default, so the short new one leads.
+        compose.onAllNodesWithText("Short New", substring = true).assertCountEquals(1)
+
+        compose.onNodeWithTag("sort-LONGEST").performClick()
+
+        // Both are still reachable; sorting must never drop anything.
+        compose.onAllNodesWithTag("video-tile").assertCountEquals(2)
+        compose.onNodeWithText("Long Old", substring = true).assertIsDisplayed()
     }
 
     @Test

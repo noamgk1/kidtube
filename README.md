@@ -87,7 +87,14 @@ Two ways to approve content, both on the parent screen:
 - **תכנים** takes a pasted channel or video link, for when you already have one.
 
 Approving a **channel** also allows whatever it uploads in future; approving a **video**
-allows that video and nothing else from its channel.
+allows that video and nothing else from its channel. Both are listed under **תכנים**
+with a **הסר** beside them — channels under *ערוצים מאושרים*, individually approved
+videos under *סרטונים בודדים*, each shown with its video id so two similarly named clips
+can be told apart.
+
+The child's home screen can be ordered by **חדשים / ישנים / קצרים / ארוכים**. A video
+with no date or no duration — the RSS fast path carries no duration, so that is every
+day's newest arrivals — sorts last rather than leading "shortest", and is never dropped.
 
 ### Video quality
 

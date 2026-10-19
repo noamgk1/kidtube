@@ -68,6 +68,7 @@ import com.noam.kidtube.core.Channel
 import com.noam.kidtube.core.ChannelId
 import com.noam.kidtube.core.DenyReason
 import com.noam.kidtube.core.SyncState
+import com.noam.kidtube.core.VideoSort
 import com.noam.kidtube.core.Whitelist
 import com.noam.kidtube.core.today
 import com.noam.kidtube.engine.Cursor
@@ -112,6 +113,11 @@ fun AppNavigation(graph: Graph) {
     var destination by remember { mutableStateOf(KidDestination.HOME) }
     var openChannel by remember { mutableStateOf<Channel?>(null) }
     var query by remember { mutableStateOf("") }
+
+    // The child's own ordering, kept for the session. Not persisted on purpose: it is a
+    // way to look through the library, not a setting about it, and a parent who found
+    // "shortest" still selected next week would reasonably call that a bug.
+    var sort by remember { mutableStateOf(VideoSort.NEWEST) }
     var errorMessage by remember { mutableStateOf("") }
     var refreshKey by remember { mutableStateOf(0) }
     var warning by remember { mutableStateOf<TimeLimitState>(TimeLimitState.Plenty) }
@@ -290,13 +296,13 @@ fun AppNavigation(graph: Graph) {
                     // instead flashed "there are no videos yet" on every cold start,
                     // which is a lie told to the child for as long as the files take to
                     // read.
-                    val library by produceState<KidLibrary?>(null, refreshKey) {
+                    val library by produceState<KidLibrary?>(null, refreshKey, sort) {
                         value = withContext(Dispatchers.IO) {
                             val snapshot = gridLoader.snapshot()
                             val resume = graph.resumeStore.continueWatching()
                             KidLibrary(
                                 snapshot = snapshot,
-                                home = HomeSections.build(snapshot, resume),
+                                home = HomeSections.build(snapshot, resume, sort),
                                 resumePositions = resumeMap(resume),
                             )
                         }
@@ -312,6 +318,8 @@ fun AppNavigation(graph: Graph) {
                         onDestinationChange = { destination = it },
                         snapshot = loaded.snapshot,
                         home = loaded.home,
+                        sort = sort,
+                        onSortChange = { sort = it },
                         resumePositions = loaded.resumePositions,
                         openChannel = openChannel,
                         onOpenChannel = { openChannel = it },
@@ -718,6 +726,15 @@ private fun AdminHost(graph: Graph, authenticator: AdminAuthenticator, onExit: (
                                 withContext(Dispatchers.IO) {
                                     graph.whitelistStore.removeChannel(id)
                                     graph.catalogStore.delete(id)
+                                }
+                                version++
+                            }
+                        },
+                        singleVideos = whitelist.singleVideos.values.sortedBy { it.title },
+                        onRemoveSingleVideo = { id ->
+                            scope.launch {
+                                withContext(Dispatchers.IO) {
+                                    graph.whitelistStore.removeSingleVideo(id)
                                 }
                                 version++
                             }

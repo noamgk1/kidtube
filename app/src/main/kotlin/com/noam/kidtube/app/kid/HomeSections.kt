@@ -2,6 +2,8 @@ package com.noam.kidtube.app.kid
 
 import com.noam.kidtube.core.Channel
 import com.noam.kidtube.core.VideoRef
+import com.noam.kidtube.core.VideoSort
+import com.noam.kidtube.core.VideoSorting
 import com.noam.kidtube.core.store.ResumePoint
 
 /**
@@ -45,7 +47,11 @@ object HomeSections {
     /** The resume row is a row, so it stays short enough to scan without scrolling far. */
     const val ROW_LIMIT: Int = 20
 
-    fun build(snapshot: LibrarySnapshot, resume: List<ResumePoint>): HomeScreenModel {
+    fun build(
+        snapshot: LibrarySnapshot,
+        resume: List<ResumePoint>,
+        sort: VideoSort = VideoSort.NEWEST,
+    ): HomeScreenModel {
         if (snapshot.isEmpty) return HomeScreenModel(emptyList(), emptyList())
 
         // A resume point survives only while its video is still approved: the parent may
@@ -53,6 +59,11 @@ object HomeSections {
         val byId = snapshot.videos.associateBy { it.id.value }
         val resumable = resume.mapNotNull { byId[it.videoId] }.take(ROW_LIMIT)
 
-        return HomeScreenModel(continueWatching = resumable, all = snapshot.videos)
+        return HomeScreenModel(
+            // Deliberately not sorted: this row is "what you were watching", and its
+            // order is how recently, which no other order would improve on.
+            continueWatching = resumable,
+            all = VideoSorting.apply(snapshot.videos, sort),
+        )
     }
 }

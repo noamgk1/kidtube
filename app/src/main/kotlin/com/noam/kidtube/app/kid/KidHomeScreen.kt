@@ -11,14 +11,18 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.Row
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.noam.kidtube.core.VideoRef
+import com.noam.kidtube.core.VideoSort
 
 /**
  * The child's home: one grid of pictures that scrolls straight down.
@@ -32,6 +36,8 @@ import com.noam.kidtube.core.VideoRef
 fun KidHomeScreen(
     model: HomeScreenModel,
     resumePositions: Map<String, Long>,
+    sort: VideoSort,
+    onSortChange: (VideoSort) -> Unit,
     onPlay: (VideoRef) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -61,12 +67,34 @@ fun KidHomeScreen(
         }
 
         item(span = { GridItemSpan(maxLineSpan) }) { SectionHeading("הסרטונים שלי") }
+        item(span = { GridItemSpan(maxLineSpan) }) {
+            SortChips(sort = sort, onSortChange = onSortChange)
+        }
 
         items(model.all, key = { it.id.value }) { video ->
             VideoCard(
                 video = video,
                 resumePositionMs = resumePositions[video.id.value] ?: 0L,
                 onClick = { onPlay(video) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun SortChips(sort: VideoSort, onSortChange: (VideoSort) -> Unit) {
+    Row(modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 8.dp)) {
+        listOf(
+            VideoSort.NEWEST to "חדשים",
+            VideoSort.OLDEST to "ישנים",
+            VideoSort.SHORTEST to "קצרים",
+            VideoSort.LONGEST to "ארוכים",
+        ).forEach { (option, label) ->
+            FilterChip(
+                selected = sort == option,
+                onClick = { onSortChange(option) },
+                label = { Text(label, style = MaterialTheme.typography.titleMedium) },
+                modifier = Modifier.padding(end = 8.dp).testTag("sort-" + option.name),
             )
         }
     }

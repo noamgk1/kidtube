@@ -41,6 +41,23 @@ class WhitelistStore(private val files: FileStore) {
         return true
     }
 
+    /**
+     * Takes an individually approved video back off the list.
+     *
+     * Also drops any block on it: the block only ever existed to hide a video from an
+     * approved set, and once the video is not approved at all the entry is a leftover
+     * that would silently re-apply if the same video were approved again later.
+     */
+    fun removeSingleVideo(id: VideoId) {
+        val current = load()
+        save(
+            current.copy(
+                singleVideos = current.singleVideos - id.value,
+                blockedVideoIds = current.blockedVideoIds - id.value,
+            ),
+        )
+    }
+
     fun block(videoId: VideoId) {
         val current = load()
         save(current.copy(blockedVideoIds = current.blockedVideoIds + videoId.value))

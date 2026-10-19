@@ -99,4 +99,48 @@ class WhitelistStoreTest {
         store.removeChannel(ChannelId("UC_abc"))
         assertTrue(store.load().isBlocked(VideoId("v1")))
     }
+
+    // An individually approved video had no way off the list at all: the parent's screen
+    // only ever listed channels, so a video approved from a search or a pasted link was
+    // permanent.
+
+    @Test
+    fun `an individually approved video can be taken back off`() {
+        store.addSingleVideo(VideoRef(VideoId("solo"), ChannelId(""), "Solo", null, 10L, null))
+
+        store.removeSingleVideo(VideoId("solo"))
+
+        assertFalse(store.load().hasSingleVideo(VideoId("solo")))
+    }
+
+    @Test
+    fun `removing one single video leaves the others alone`() {
+        store.addSingleVideo(VideoRef(VideoId("keep"), ChannelId(""), "Keep", null, 10L, null))
+        store.addSingleVideo(VideoRef(VideoId("drop"), ChannelId(""), "Drop", null, 10L, null))
+
+        store.removeSingleVideo(VideoId("drop"))
+
+        assertTrue(store.load().hasSingleVideo(VideoId("keep")))
+    }
+
+    @Test
+    fun `removing a video drops any block on it`() {
+        // Otherwise the block outlives the approval and silently re-applies if the same
+        // video is ever approved again.
+        store.addSingleVideo(VideoRef(VideoId("solo"), ChannelId(""), "Solo", null, 10L, null))
+        store.block(VideoId("solo"))
+
+        store.removeSingleVideo(VideoId("solo"))
+
+        assertFalse(store.load().isBlocked(VideoId("solo")))
+    }
+
+    @Test
+    fun `removing a video that was never approved changes nothing`() {
+        store.addSingleVideo(VideoRef(VideoId("solo"), ChannelId(""), "Solo", null, 10L, null))
+
+        store.removeSingleVideo(VideoId("never-there"))
+
+        assertTrue(store.load().hasSingleVideo(VideoId("solo")))
+    }
 }
