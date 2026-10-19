@@ -75,10 +75,19 @@ sideload.keyPassword=...
 
 ### First run
 
-The home screen is empty, because nothing is approved yet. **Hold the bottom of the
-navigation rail for three seconds** to reach the parent screen. The password is
-`karmon1234` until you change it, which you can do under **הגדרות** in the parent screen
-— and should, before handing the tablet over.
+The home screen is empty, because nothing is approved yet. **Press הורים in the top
+bar** to reach the parent screen. The password is `karmon1234` until you change it,
+which you can do under **הגדרות** — and should, before handing the tablet over.
+
+Two ways to approve content, both on the parent screen:
+
+- **חיפוש** searches YouTube and lets you tick channels and videos to allow. This is the
+  only place in the app that queries YouTube for something not yet approved, which is
+  why it sits behind the password.
+- **תכנים** takes a pasted channel or video link, for when you already have one.
+
+Approving a **channel** also allows whatever it uploads in future; approving a **video**
+allows that video and nothing else from its channel.
 
 ## Building
 
@@ -201,9 +210,9 @@ cannot tell a parent from a child, and whoever holds it first would get to choos
 What is left is that **the factory password is in this file**. Anyone who reads it, or
 who has used the app before, knows it. It buys a parent the time to change it rather
 than security on its own, so the parent screen says so until you do. **Change it under
-הגדרות before handing the tablet over.** After that the door is a three-second hold on
-one fixed, unmarked spot with no ripple and no affordance, and the only reset is
-destructive.
+הגדרות before handing the tablet over.** The way in is a plain button: what guards the
+parent screens is the password behind it, not the button being hard to find — which it
+was, for the parent as much as for the child. The only reset is destructive.
 
 ## Licence
 
