@@ -62,6 +62,15 @@
       if (!ready || !player.getCurrentTime) { return; }
       post('time', player.getCurrentTime() + ':' + player.getDuration());
     }, 500);
+
+    // What YouTube actually settled on. Reported because the whole reason this player
+    // exists is a quality claim, and without this nobody can tell whether it came true.
+    var lastQuality = '';
+    setInterval(function () {
+      if (!ready || !player.getPlaybackQuality) { return; }
+      var q = player.getPlaybackQuality();
+      if (q && q !== lastQuality) { lastQuality = q; post('quality', q); }
+    }, 2000);
   </script>
 </body>
 </html>

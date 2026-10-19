@@ -42,7 +42,11 @@ private const val EMBED_URL = EMBED_ORIGIN + "/assets/embed_player.html"
  * end screens, the channel name, "watch on YouTube" - and none of it should be reachable
  * by a child. The app draws its own controls outside the WebView.
  */
-internal class EmbeddedVideoPlayer(context: Context) : VideoPlayer {
+internal class EmbeddedVideoPlayer(
+    context: Context,
+    /** Told what YouTube settled on, so the parent can see whether the quality claim held. */
+    private val onQuality: (String) -> Unit = {},
+) : VideoPlayer {
 
     private val mutableState = MutableStateFlow(PlayerState())
     override val state: StateFlow<PlayerState> = mutableState.asStateFlow()
@@ -104,6 +108,8 @@ internal class EmbeddedVideoPlayer(context: Context) : VideoPlayer {
                         durationMs = (duration * 1_000).toLong(),
                     )
                 }
+
+                "quality" -> onQuality(value)
 
                 // 101 and 150 are "the owner does not allow embedded playback", which is
                 // the one failure this engine has and the extractor engine does not.
@@ -190,10 +196,13 @@ internal class EmbeddedVideoPlayer(context: Context) : VideoPlayer {
     internal fun isReadyForTest(): Boolean = ready
 }
 
-internal class EmbeddedPlayerEngine(private val appContext: Context) : PlayerEngine {
+internal class EmbeddedPlayerEngine(
+    private val appContext: Context,
+    private val onQuality: (String) -> Unit = {},
+) : PlayerEngine {
 
     override fun createController(scope: CoroutineScope): VideoPlayer =
-        EmbeddedVideoPlayer(appContext.applicationContext)
+        EmbeddedVideoPlayer(appContext.applicationContext, onQuality)
 
     @Composable
     override fun Surface(controller: VideoPlayer, modifier: Modifier) {

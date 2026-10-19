@@ -102,7 +102,12 @@ Two costs, both real: the video is drawn by YouTube's player inside the app rath
 by ours, and it needs YouTube's JavaScript. Touches are swallowed before they reach it
 and nothing is allowed to navigate, so the child cannot reach an end screen or
 "watch on YouTube" — but it is less isolation than the extractor engine gives, which is
-why it is a choice rather than the default. Switching takes effect on the next launch.
+why it is a choice rather than the default. Switching takes effect when you leave the
+parent screen.
+
+The same screen reports what the embedded player actually settled on after the next
+video — `hd1080`, `medium`, and so on. That is the only honest answer to whether
+switching helped, because nothing else on screen can tell you.
 
 ### Hebrew titles
 

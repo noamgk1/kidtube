@@ -28,6 +28,7 @@ import com.noam.kidtube.extractor.SystemClockImpl
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 class Graph(
@@ -47,6 +48,11 @@ class Graph(
     val contentSource: ContentSource,
     val playbackResolver: PlaybackResolver,
     val playerEngine: PlayerEngine,
+    /** The same videos through YouTube's embedded player; the parent chooses at any time. */
+    val embeddedPlaybackResolver: PlaybackResolver,
+    val embeddedPlayerEngine: PlayerEngine,
+    /** What the embedded player last settled on, e.g. "hd1080". Empty until it plays. */
+    val lastEmbeddedQuality: StateFlow<String>,
     val engineHealth: StateFlow<EngineHealth>,
     val releaseEngine: () -> Unit,
     val catalogSync: CatalogSync,
@@ -94,11 +100,27 @@ object Wiring {
         AdminAuthenticator(whitelistStore = whitelistStore, catalogStore = catalogStore,
             ledger = watchLedger, settingsStore = settingsStore).ensureDefaultPassword()
 
-        // Which playback engine the parent chose. Read once at startup: swapping it
-        // mid-session would mean tearing down a player that may be on screen, and the
-        // choice is made rarely enough that a restart is a fair price.
-        val embedded = settingsStore.load().engineId == EMBEDDED_ENGINE_ID
-        val engine = ExtractorEngine.create(appContext, clock, embedded = embedded)
+        val embeddedQuality = MutableStateFlow("")
+
+        // Both playback paths are built; the app picks per the setting while it runs.
+        // Choosing here instead meant the setting only took effect when the process next
+        // died, which on Android is whenever it happens to - so it looked like it did
+        // nothing at all.
+        val engine = ExtractorEngine.create(
+            appContext,
+            clock,
+            // Lets the embedded path answer from what is already approved instead of
+            // making a network request it does not need.
+            knownVideo = { videoId ->
+                val whitelist = whitelistStore.load()
+                whitelist.singleVideos[videoId.value]
+                    ?: whitelist.channels.values
+                        .firstNotNullOfOrNull { channel ->
+                            catalogStore.load(channel.id).firstOrNull { it.id == videoId }
+                        }
+            },
+            onEmbeddedQuality = { embeddedQuality.value = it },
+        )
 
         return Graph(
             clock = clock,
@@ -123,6 +145,9 @@ object Wiring {
             contentSource = engine.contentSource,
             playbackResolver = engine.playbackResolver,
             playerEngine = engine.playerEngine,
+            embeddedPlaybackResolver = engine.embeddedPlaybackResolver,
+            embeddedPlayerEngine = engine.embeddedPlayerEngine,
+            lastEmbeddedQuality = embeddedQuality,
             engineHealth = engine.health,
             releaseEngine = engine::release,
             catalogSync = CatalogSync(

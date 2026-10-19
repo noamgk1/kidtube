@@ -18,8 +18,19 @@ import kotlinx.coroutines.flow.StateFlow
  */
 class ExtractorEngineBundle internal constructor(
     val contentSource: ContentSource,
+    /** Extracted streams played by our own player. The default. */
     val playbackResolver: PlaybackResolver,
     val playerEngine: PlayerEngine,
+    /**
+     * The same videos played by YouTube's embedded player instead.
+     *
+     * Built alongside the other rather than instead of it, because the parent switches
+     * between them while the app is running. Building one at startup meant the choice
+     * only took effect when the process next died, which on Android is whenever it
+     * happens to - the setting looked like it did nothing.
+     */
+    val embeddedPlaybackResolver: PlaybackResolver,
+    val embeddedPlayerEngine: PlayerEngine,
     val health: StateFlow<EngineHealth>,
     private val releaseSession: () -> Unit,
 ) {
@@ -31,21 +42,20 @@ class ExtractorEngineBundle internal constructor(
 object ExtractorEngine {
 
     /**
-     * [embedded] swaps extracted streams for YouTube's own embedded player.
+     * [knownVideo] looks a video up in what is already approved and stored.
      *
-     * Only the playback half changes: the same content source lists the same approved
-     * videos either way. It exists because Made-for-Kids content is served a single 360p
-     * stream through extraction and nothing better exists to choose, while YouTube's own
-     * player is not held to that. Everything else about it is worse - a WebView, and the
-     * video drawn by someone else's player - so it is the parent's choice, not the
-     * default.
+     * The embedded path uses it to skip a network round trip it does not need: see
+     * EmbeddedPlaybackResolver. Returning null for everything is safe and simply means
+     * every playback resolves the slow way.
      */
     fun create(
         appContext: Context,
         clock: Clock = SystemClockImpl,
         maxHeight: Int = 1080,
         preferredLocaleTag: String = "he-IL",
-        embedded: Boolean = false,
+        knownVideo: (com.noam.kidtube.core.VideoId) -> com.noam.kidtube.core.VideoRef? = { null },
+        /** Reports what the embedded player settled on, e.g. "hd1080". */
+        onEmbeddedQuality: (String) -> Unit = {},
     ): ExtractorEngineBundle {
         val session = PoTokenSession(WebViewPoTokenGenerator(appContext), clock)
         val downloader = OkDownloader()
@@ -55,16 +65,15 @@ object ExtractorEngine {
                 downloader,
                 localeTag = preferredLocaleTag,
             ),
-            playbackResolver = if (embedded) {
-                EmbeddedPlaybackResolver(session, downloader)
-            } else {
-                ExtractorPlaybackResolver(session, downloader, maxHeight, preferredLocaleTag)
-            },
-            playerEngine = if (embedded) {
-                EmbeddedPlayerEngine(appContext)
-            } else {
-                ExoPlayerEngine(appContext)
-            },
+            playbackResolver = ExtractorPlaybackResolver(
+                session,
+                downloader,
+                maxHeight,
+                preferredLocaleTag,
+            ),
+            playerEngine = ExoPlayerEngine(appContext),
+            embeddedPlaybackResolver = EmbeddedPlaybackResolver(knownVideo, session, downloader),
+            embeddedPlayerEngine = EmbeddedPlayerEngine(appContext, onEmbeddedQuality),
             health = session.health,
             releaseSession = session::release,
         )

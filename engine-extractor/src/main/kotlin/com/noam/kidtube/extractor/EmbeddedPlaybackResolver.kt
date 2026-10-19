@@ -4,6 +4,7 @@ import com.noam.kidtube.core.PlaybackSource
 import com.noam.kidtube.core.PlaybackTicket
 import com.noam.kidtube.core.VideoDetails
 import com.noam.kidtube.core.VideoId
+import com.noam.kidtube.core.VideoRef
 import com.noam.kidtube.engine.PlaybackResolver
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -14,25 +15,53 @@ import org.schabi.newpipe.extractor.stream.StreamInfo
 import org.schabi.newpipe.extractor.stream.StreamType
 
 /**
- * Resolves a video for YouTube's embedded player: all of the metadata, none of the
- * streams.
+ * Resolves a video for YouTube's embedded player.
  *
- * The metadata still comes from a real extraction rather than from the catalog, and
- * deliberately. Policy's checks are made of it — that the video YouTube served is the one
- * that was asked for, its age limit, whether it is live — and a catalog entry carries
- * none of that. Skipping the extraction would save a request and quietly turn three
- * guarantees into assumptions.
+ * The embedded player needs nothing but a video id, so when the video is already in the
+ * approved catalog this answers from there and makes no network request at all. That is
+ * the whole of the wait before a video starts: extraction was measured between 1.8 and
+ * 26.6 seconds, and on this path it buys nothing that is used.
  *
- * What it does skip is choosing a stream, which is the step that cannot do better than
- * 360p on Made-for-Kids content. A video whose streams are unusable but whose metadata
- * reads fine will play here and fails on the extractor engine.
+ * What the skipped extraction did buy was three of Policy's checks, so it is worth being
+ * exact about what replaces them:
+ *
+ *  - **Only approved videos play.** Unchanged, and it never came from here: Policy.issue
+ *    checks the whitelist before a ticket exists, and the player accepts nothing but a
+ *    ConfirmedTicket.
+ *  - **Live streams** are already excluded when the catalog is built, so one cannot be in
+ *    the catalog to be found here.
+ *  - **Age-restricted video** is the one real difference. YouTube refuses to play such a
+ *    video in an embed and the player reports its refusal, so it is enforced - by YouTube
+ *    rather than by us, one step later, and visibly.
+ *
+ * A video that is *not* in the catalog still resolves the slow, fully-checked way.
  */
 internal class EmbeddedPlaybackResolver(
+    private val knownVideo: (VideoId) -> VideoRef?,
     private val poTokenProvider: PoTokenProvider,
     private val downloader: Downloader = OkDownloader(),
 ) : PlaybackResolver {
 
-    override suspend fun resolve(ticket: PlaybackTicket): Result<VideoDetails> =
+    override suspend fun resolve(ticket: PlaybackTicket): Result<VideoDetails> {
+        knownVideo(ticket.videoId)?.let { known ->
+            return Result.success(
+                VideoDetails(
+                    id = ticket.videoId,
+                    title = known.title,
+                    // The RSS fast path carries no duration; the player reports the real
+                    // one as soon as it has loaded.
+                    durationSeconds = known.durationSeconds ?: 0,
+                    ageLimit = 0,
+                    isLive = false,
+                    source = PlaybackSource.Embedded(ticket.videoId),
+                ),
+            )
+        }
+        return extract(ticket)
+    }
+
+    /** For a video with no catalog entry - an individually approved one, say. */
+    private suspend fun extract(ticket: PlaybackTicket): Result<VideoDetails> =
         withContext(Dispatchers.IO) {
             ExtractorInit.ensureInitialised(downloader, poTokenProvider)
             val videoId = ticket.videoId.value

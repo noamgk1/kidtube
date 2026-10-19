@@ -26,6 +26,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.noam.kidtube.app.admin.AddFlow
 import com.noam.kidtube.app.admin.AddPreview
 import com.noam.kidtube.app.admin.AdminAuthenticator
@@ -118,12 +119,32 @@ fun AppNavigation(graph: Graph) {
     /** Where cancelling the password prompt returns to. Cancelling must not be an escape. */
     var gateReturnsTo by remember { mutableStateOf(AppScreen.GRID) }
 
-    val gridLoader = remember { KidGridLoader(graph.whitelistStore, graph.catalogStore, graph.translationStore) }
-    val controller = remember { graph.playerEngine.createController(scope) }
-    val coordinator = remember {
+    val gridLoader = remember {
+        KidGridLoader(graph.whitelistStore, graph.catalogStore, graph.translationStore)
+    }
+
+    // Which playback engine is live. Re-read whenever the parent leaves their screen, so
+    // flipping the switch takes effect on the next video rather than on the next time
+    // Android happens to kill the process.
+    var engineEpoch by remember { mutableStateOf(0) }
+    val useEmbedded by produceState(false, engineEpoch) {
+        value = withContext(Dispatchers.IO) {
+            graph.settingsStore.load().engineId == EMBEDDED_ENGINE_ID
+        }
+    }
+
+    // Keyed on the choice: changing it discards the player and builds the other one.
+    val controller = remember(useEmbedded) {
+        if (useEmbedded) {
+            graph.embeddedPlayerEngine.createController(scope)
+        } else {
+            graph.playerEngine.createController(scope)
+        }
+    }
+    val coordinator = remember(useEmbedded, controller) {
         PlaybackCoordinator(
             graph.policy,
-            graph.playbackResolver,
+            if (useEmbedded) graph.embeddedPlaybackResolver else graph.playbackResolver,
             controller,
             graph.whitelistStore,
             graph.budgetStore,
@@ -161,6 +182,7 @@ fun AppNavigation(graph: Graph) {
     val leaveAdmin: () -> Unit = {
         scope.launch {
             refreshKey++
+            engineEpoch++
             val remaining = withContext(Dispatchers.IO) { remainingSecondsToday(graph) }
             warning = TimeLimitPresenter.stateFor(remaining)
             // A parent who granted bonus minutes expects the child back on the grid.
@@ -217,9 +239,14 @@ fun AppNavigation(graph: Graph) {
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
+            // The player only: this also runs when the parent switches engines, and the
+            // PO token session below is shared by both and must outlive the swap.
             controller.release()
-            graph.releaseEngine()
         }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose { graph.releaseEngine() }
     }
 
     // Back must not be a way out of the app. A child pressing it used to land on the
@@ -511,6 +538,7 @@ private fun AdminHost(graph: Graph, authenticator: AdminAuthenticator, onExit: (
     val translatedCount by produceState(0, version) {
         value = withContext(Dispatchers.IO) { graph.translationStore.all().size }
     }
+    val lastEmbeddedQuality by graph.lastEmbeddedQuality.collectAsStateWithLifecycle()
     val embeddedPlayer by produceState(false, version) {
         value = withContext(Dispatchers.IO) {
             graph.settingsStore.load().engineId == EMBEDDED_ENGINE_ID
@@ -793,6 +821,7 @@ private fun AdminHost(graph: Graph, authenticator: AdminAuthenticator, onExit: (
                     },
                     translatedCount = translatedCount,
                     embeddedPlayer = embeddedPlayer,
+                    lastEmbeddedQuality = lastEmbeddedQuality,
                     onEmbeddedPlayerChange = { wanted ->
                         scope.launch {
                             withContext(Dispatchers.IO) {

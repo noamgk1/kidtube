@@ -38,6 +38,8 @@ fun AdminStatusScreen(
     translatedCount: Int,
     embeddedPlayer: Boolean,
     onEmbeddedPlayerChange: (Boolean) -> Unit,
+    /** What the embedded player last settled on, e.g. "hd1080". Empty until it plays. */
+    lastEmbeddedQuality: String,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -101,11 +103,24 @@ fun AdminStatusScreen(
             )
             Text(
                 text = if (embeddedPlayer) {
-                    "נגן יוטיוב מוטמע — ייכנס לתוקף בפתיחה הבאה של האפליקציה"
+                    "נגן יוטיוב מוטמע — ייכנס לתוקף ביציאה מהמסך הזה"
                 } else {
                     "הנגן שלנו — תוכן לילדים יוגבל ל-360p"
                 },
                 modifier = Modifier.padding(start = 12.dp),
+            )
+        }
+
+        if (embeddedPlayer) {
+            // The only honest answer to "did that help?". The whole reason this player
+            // exists is a quality claim, and nothing else on screen can confirm it.
+            Text(
+                text = if (lastEmbeddedQuality.isBlank()) {
+                    "האיכות שתנוגן תופיע כאן אחרי הסרטון הבא"
+                } else {
+                    "האיכות שנוגנה לאחרונה: " + lastEmbeddedQuality
+                },
+                modifier = Modifier.padding(top = 8.dp),
             )
         }
 
