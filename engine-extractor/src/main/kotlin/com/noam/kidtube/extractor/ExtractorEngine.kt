@@ -34,12 +34,16 @@ object ExtractorEngine {
         appContext: Context,
         clock: Clock = SystemClockImpl,
         maxHeight: Int = 1080,
-        preferredLocaleTag: String = "he",
+        preferredLocaleTag: String = "he-IL",
     ): ExtractorEngineBundle {
         val session = PoTokenSession(WebViewPoTokenGenerator(appContext), clock)
         val downloader = OkDownloader()
         return ExtractorEngineBundle(
-            contentSource = ExtractorContentSource(session, downloader),
+            contentSource = ExtractorContentSource(
+                session,
+                downloader,
+                localeTag = preferredLocaleTag,
+            ),
             playbackResolver = ExtractorPlaybackResolver(
                 session,
                 downloader,

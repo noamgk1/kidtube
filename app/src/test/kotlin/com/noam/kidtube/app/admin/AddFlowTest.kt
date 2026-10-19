@@ -10,6 +10,7 @@ import com.noam.kidtube.core.store.CatalogStore
 import com.noam.kidtube.core.store.FileStore
 import com.noam.kidtube.core.store.SyncStateStore
 import com.noam.kidtube.core.store.WhitelistStore
+import com.noam.kidtube.engine.SearchKind
 import com.noam.kidtube.engine.SearchResult
 import com.noam.kidtube.engine.UnsupportedReason
 import com.noam.kidtube.engine.fake.FakeContentSource
@@ -238,5 +239,23 @@ class AddFlowTest {
         assertEquals("", stored.channelId.value)
         assertEquals("https://thumb", stored.thumbnailUrl, "the real thumbnail is kept")
         assertEquals(120L, stored.durationSeconds)
+    }
+
+    @Test
+    fun `asking for channels passes that through to YouTube`() = runTest {
+        // Unfiltered, YouTube answers a search almost entirely with videos, and the one
+        // channel a parent came to approve is buried among them.
+        source.scriptSearch("kids", emptyList())
+
+        flow.search("kids", kind = SearchKind.CHANNELS)
+
+        assertEquals(SearchKind.CHANNELS, source.lastSearchKind)
+    }
+
+    @Test
+    fun `an empty query asks YouTube nothing, whatever kind was requested`() = runTest {
+        flow.search("  ", kind = SearchKind.VIDEOS)
+
+        assertNull(source.lastSearchKind)
     }
 }

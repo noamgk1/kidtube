@@ -53,7 +53,7 @@ class KidShellTest {
             destination = destination,
             onDestinationChange = { destination = it },
             snapshot = library,
-            sections = HomeSections.build(library, emptyList()),
+            home = HomeSections.build(library, emptyList()),
             resumePositions = emptyMap(),
             openChannel = openChannel,
             onOpenChannel = { openChannel = it },
@@ -68,8 +68,7 @@ class KidShellTest {
     fun theHomeScreenShowsOnlyTheVideosInTheSnapshot() {
         compose.setContent { Shell() }
 
-        // Once. With a single approved channel there is no per-channel row, because it
-        // would repeat the "חדש" row exactly.
+        // Once: home is one grid, so nothing appears twice.
         compose.onAllNodesWithText("Allowed Video", substring = true).assertCountEquals(1)
         compose.onAllNodesWithTag("video-tile").assertCountEquals(1)
     }

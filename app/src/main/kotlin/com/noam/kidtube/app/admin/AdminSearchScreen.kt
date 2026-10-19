@@ -23,6 +23,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -41,6 +43,7 @@ import coil.compose.AsyncImage
 import com.noam.kidtube.app.kid.formatDuration
 import com.noam.kidtube.app.ui.formatCount
 import com.noam.kidtube.core.BidiText
+import com.noam.kidtube.engine.SearchKind
 import com.noam.kidtube.engine.SearchResult
 
 /** What the parent has ticked, keyed so a channel and a video can never collide. */
@@ -61,6 +64,8 @@ fun AdminSearchScreen(
     query: String,
     onQueryChange: (String) -> Unit,
     onSearch: () -> Unit,
+    kind: SearchKind,
+    onKindChange: (SearchKind) -> Unit,
     searching: Boolean,
     results: List<SearchResult>,
     selected: Set<String>,
@@ -88,6 +93,24 @@ fun AdminSearchScreen(
                 modifier = Modifier.padding(start = 12.dp).testTag("admin-search-button"),
             ) {
                 Text("חפש")
+            }
+        }
+
+        // YouTube answers an unfiltered search almost entirely with videos, so without
+        // these a parent hunting for a channel has to scroll past dozens of clips.
+        Row(modifier = Modifier.padding(top = 12.dp)) {
+            listOf(
+                SearchKind.EVERYTHING to "הכל",
+                SearchKind.CHANNELS to "ערוצים",
+                SearchKind.VIDEOS to "סרטונים",
+            ).forEach { (option, label) ->
+                FilterChip(
+                    selected = kind == option,
+                    onClick = { onKindChange(option) },
+                    label = { Text(label) },
+                    colors = FilterChipDefaults.filterChipColors(),
+                    modifier = Modifier.padding(end = 8.dp).testTag("kind-" + option.name),
+                )
             }
         }
 

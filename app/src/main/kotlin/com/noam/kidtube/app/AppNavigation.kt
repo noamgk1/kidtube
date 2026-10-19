@@ -46,7 +46,7 @@ import com.noam.kidtube.app.admin.TimePresenter
 import com.noam.kidtube.app.admin.TimeView
 import com.noam.kidtube.app.admin.searchKeyOf
 import com.noam.kidtube.app.kid.CalmErrorCard
-import com.noam.kidtube.app.kid.HomeSection
+import com.noam.kidtube.app.kid.HomeScreenModel
 import com.noam.kidtube.app.kid.HomeSections
 import com.noam.kidtube.app.kid.KidDestination
 import com.noam.kidtube.app.kid.KidGridLoader
@@ -70,8 +70,10 @@ import com.noam.kidtube.core.SyncState
 import com.noam.kidtube.core.Whitelist
 import com.noam.kidtube.core.today
 import com.noam.kidtube.engine.Cursor
+import com.noam.kidtube.engine.SearchKind
 import com.noam.kidtube.engine.SearchResult
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -95,7 +97,7 @@ private const val EXIT_TAB = 5
  */
 private data class KidLibrary(
     val snapshot: LibrarySnapshot = LibrarySnapshot(emptyList(), emptyList()),
-    val sections: List<HomeSection> = emptyList(),
+    val home: HomeScreenModel = HomeScreenModel(emptyList(), emptyList()),
     val resumePositions: Map<String, Long> = emptyMap(),
 )
 
@@ -261,7 +263,7 @@ fun AppNavigation(graph: Graph) {
                             val resume = graph.resumeStore.continueWatching()
                             KidLibrary(
                                 snapshot = snapshot,
-                                sections = HomeSections.build(snapshot, resume),
+                                home = HomeSections.build(snapshot, resume),
                                 resumePositions = resumeMap(resume),
                             )
                         }
@@ -276,7 +278,7 @@ fun AppNavigation(graph: Graph) {
                         destination = destination,
                         onDestinationChange = { destination = it },
                         snapshot = loaded.snapshot,
-                        sections = loaded.sections,
+                        home = loaded.home,
                         resumePositions = loaded.resumePositions,
                         openChannel = openChannel,
                         onOpenChannel = { openChannel = it },
@@ -373,6 +375,7 @@ private fun AdminSearchHost(
 
     var query by remember { mutableStateOf("") }
     var submitted by remember { mutableStateOf("") }
+    var kind by remember { mutableStateOf(SearchKind.EVERYTHING) }
     var searching by remember { mutableStateOf(false) }
     var results by remember { mutableStateOf<List<SearchResult>>(emptyList()) }
     var nextCursor by remember { mutableStateOf<Cursor?>(null) }
@@ -390,11 +393,17 @@ private fun AdminSearchHost(
         }
     }
 
+    // The in-flight search, so a new one replaces it rather than racing it. Changing the
+    // filter while results were still coming back let the older request land last and
+    // overwrite them: the chips said "channels" and the list was videos.
+    var inFlight by remember { mutableStateOf<Job?>(null) }
+
     fun runSearch(cursor: Cursor?) {
-        scope.launch {
+        inFlight?.cancel()
+        inFlight = scope.launch {
             searching = true
             notice = null
-            val outcome = addFlow.search(submitted, cursor)
+            val outcome = addFlow.search(submitted, cursor, kind)
             searching = false
             outcome.fold(
                 onSuccess = { page ->
@@ -409,15 +418,26 @@ private fun AdminSearchHost(
         }
     }
 
+    // One definition of "start a fresh search", so the button, the keyboard and a change
+    // of filter all behave the same.
+    fun freshSearch(text: String) {
+        submitted = text
+        selected = emptySet()
+        results = emptyList()
+        nextCursor = null
+        runSearch(null)
+    }
+
     AdminSearchScreen(
         query = query,
         onQueryChange = { query = it },
-        onSearch = {
-            submitted = query
-            selected = emptySet()
-            results = emptyList()
-            nextCursor = null
-            runSearch(null)
+        onSearch = { freshSearch(query) },
+        kind = kind,
+        onKindChange = { chosen ->
+            kind = chosen
+            // Re-run straight away: a filter the parent has to press "search" again to
+            // apply looks broken.
+            if (submitted.isNotBlank()) freshSearch(submitted)
         },
         searching = searching,
         results = results,

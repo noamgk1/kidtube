@@ -5,8 +5,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -15,40 +18,38 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.noam.kidtube.core.BidiText
 import com.noam.kidtube.core.VideoRef
 
 /**
- * The child's home: rows of pictures, the newest first, then one row per approved
- * channel. Everything here came out of an already-filtered snapshot.
+ * The child's home: one grid of pictures that scrolls straight down.
+ *
+ * The resume row is the only thing laid out sideways, because it is short and because
+ * "the one you were watching" earns its own place at the top. Everything else is the
+ * grid, so reaching the end of the library is one gesture repeated rather than a mixture
+ * of two.
  */
 @Composable
 fun KidHomeScreen(
-    sections: List<HomeSection>,
+    model: HomeScreenModel,
     resumePositions: Map<String, Long>,
     onPlay: (VideoRef) -> Unit,
-    onOpenChannel: (com.noam.kidtube.core.Channel) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    if (sections.isEmpty()) {
+    if (model.isEmpty) {
         EmptyLibraryMessage(modifier)
         return
     }
 
-    LazyColumn(
+    LazyVerticalGrid(
+        columns = GridCells.Adaptive(minSize = CARD_WIDTH),
+        contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 40.dp),
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(top = 24.dp, bottom = 32.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
-        items(sections, key = { it.kind.name + (it.channel?.id?.value ?: "") }) { section ->
-            Column {
-                Text(
-                    text = sectionTitle(section),
-                    style = MaterialTheme.typography.titleLarge,
-                    modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 4.dp),
-                )
-                LazyRow(contentPadding = PaddingValues(horizontal = 12.dp)) {
-                    items(section.videos, key = { it.id.value }) { video ->
+        if (model.continueWatching.isNotEmpty()) {
+            item(span = { GridItemSpan(maxLineSpan) }) { SectionHeading("המשך לצפות") }
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                LazyRow {
+                    items(model.continueWatching, key = { it.id.value }) { video ->
                         VideoCard(
                             video = video,
                             resumePositionMs = resumePositions[video.id.value] ?: 0L,
@@ -58,13 +59,26 @@ fun KidHomeScreen(
                 }
             }
         }
+
+        item(span = { GridItemSpan(maxLineSpan) }) { SectionHeading("הסרטונים שלי") }
+
+        items(model.all, key = { it.id.value }) { video ->
+            VideoCard(
+                video = video,
+                resumePositionMs = resumePositions[video.id.value] ?: 0L,
+                onClick = { onPlay(video) },
+            )
+        }
     }
 }
 
-private fun sectionTitle(section: HomeSection): String = when (section.kind) {
-    SectionKind.CONTINUE_WATCHING -> "המשך לצפות"
-    SectionKind.NEWEST -> "חדש"
-    SectionKind.CHANNEL -> BidiText.isolate(section.channel?.title.orEmpty())
+@Composable
+private fun SectionHeading(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleLarge,
+        modifier = Modifier.padding(start = 8.dp, end = 8.dp, top = 12.dp, bottom = 4.dp),
+    )
 }
 
 /**

@@ -21,6 +21,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -97,15 +100,43 @@ fun PlayerScreen(
                 )
             }
 
-            // Media time reads left-to-right everywhere, so the bar stays LTR in an
-            // otherwise right-to-left interface.
+            // Media time reads left-to-right everywhere, so the bar and its clock stay
+            // LTR in an otherwise right-to-left interface.
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-                Slider(
-                    value = state.positionMs.toFloat(),
-                    onValueChange = { controller.seekTo(it.toLong()) },
-                    valueRange = 0f..state.durationMs.coerceAtLeast(1).toFloat(),
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.weight(1f).padding(horizontal = 16.dp),
-                )
+                ) {
+                    // While the finger is down the bar follows the finger, not the
+                    // player: without this it snaps back to the playing position on every
+                    // tick and the video cannot be scrubbed.
+                    var scrubbing by remember { mutableStateOf<Float?>(null) }
+                    val duration = state.durationMs.coerceAtLeast(0)
+                    val position = scrubbing ?: state.positionMs.toFloat()
+
+                    Text(
+                        text = formatDuration(position.toLong() / 1_000),
+                        color = Color.White,
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Slider(
+                        value = position.coerceIn(0f, duration.coerceAtLeast(1).toFloat()),
+                        onValueChange = { scrubbing = it },
+                        onValueChangeFinished = {
+                            scrubbing?.let { controller.seekTo(it.toLong()) }
+                            scrubbing = null
+                        },
+                        valueRange = 0f..duration.coerceAtLeast(1).toFloat(),
+                        enabled = duration > 0,
+                        modifier = Modifier.weight(1f).padding(horizontal = 12.dp),
+                    )
+                    Text(
+                        // Empty until the player reports one, rather than a confident 0:00.
+                        text = formatDuration(duration / 1_000),
+                        color = Color.White,
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                }
             }
         }
     }

@@ -6,6 +6,7 @@ import com.noam.kidtube.core.VideoRef
 import com.noam.kidtube.engine.ChannelResolutionError
 import com.noam.kidtube.engine.ContentSource
 import com.noam.kidtube.engine.Cursor
+import com.noam.kidtube.engine.SearchKind
 import com.noam.kidtube.engine.SearchPage
 import com.noam.kidtube.engine.SearchResult
 import com.noam.kidtube.engine.VideoPage
@@ -42,11 +43,20 @@ class FakeContentSource : ContentSource {
         searches[query] = listOf(SearchPage(results, nextToken?.let { Cursor(it) }))
     }
 
+    /** The kind the last search asked for, so a test can check the filter was honoured. */
+    var lastSearchKind: SearchKind? = null
+        private set
+
     fun scriptSearchPages(query: String, pages: List<SearchPage>) {
         searches[query] = pages
     }
 
-    override suspend fun search(query: String, cursor: Cursor?): Result<SearchPage> {
+    override suspend fun search(
+        query: String,
+        cursor: Cursor?,
+        kind: SearchKind,
+    ): Result<SearchPage> {
+        lastSearchKind = kind
         val pages = searches[query]
             ?: return Result.success(SearchPage(emptyList(), null))
         val index = if (cursor == null) {

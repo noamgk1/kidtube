@@ -9,6 +9,7 @@ import com.noam.kidtube.engine.ChannelUrlParser
 import com.noam.kidtube.engine.ContentSource
 import com.noam.kidtube.engine.Cursor
 import com.noam.kidtube.engine.PastedLink
+import com.noam.kidtube.engine.SearchKind
 import com.noam.kidtube.engine.SearchPage
 import com.noam.kidtube.engine.SearchResult
 import com.noam.kidtube.engine.VideoPage
@@ -29,6 +30,7 @@ import org.schabi.newpipe.extractor.search.SearchInfo
 import org.schabi.newpipe.extractor.stream.StreamInfoItem
 import org.schabi.newpipe.extractor.stream.StreamType
 import org.schabi.newpipe.extractor.services.youtube.PoTokenProvider
+import org.schabi.newpipe.extractor.services.youtube.linkHandler.YoutubeSearchQueryHandlerFactory
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 import okhttp3.Request as OkRequest
@@ -37,6 +39,8 @@ internal class ExtractorContentSource(
     private val poTokenProvider: PoTokenProvider,
     private val downloader: Downloader = OkDownloader(),
     private val httpGet: (String) -> String = ::downloadText,
+    /** What YouTube is asked to answer in; see ExtractorInit. */
+    private val localeTag: String = "he-IL",
 ) : ContentSource {
 
     private val youtube get() = ServiceList.YouTube
@@ -52,7 +56,7 @@ internal class ExtractorContentSource(
     private val cursorSequence = AtomicLong()
 
     override suspend fun resolveChannel(url: String): Result<Channel> = withContext(Dispatchers.IO) {
-        ExtractorInit.ensureInitialised(downloader, poTokenProvider)
+        ExtractorInit.ensureInitialised(downloader, poTokenProvider, localeTag)
 
         val canonical = when (val link = ChannelUrlParser.parse(url)) {
             is PastedLink.ChannelById -> link.canonicalUrl
@@ -102,7 +106,7 @@ internal class ExtractorContentSource(
         channelId: ChannelId,
         cursor: Cursor?,
     ): Result<VideoPage> = withContext(Dispatchers.IO) {
-        ExtractorInit.ensureInitialised(downloader, poTokenProvider)
+        ExtractorInit.ensureInitialised(downloader, poTokenProvider, localeTag)
 
         runCatching {
             if (cursor == null) {
@@ -145,12 +149,16 @@ internal class ExtractorContentSource(
      * approving one would mean approving a list whose owner can add to it afterwards,
      * which is a hole in the whitelist rather than a feature of it.
      */
-    override suspend fun search(query: String, cursor: Cursor?): Result<SearchPage> =
+    override suspend fun search(
+        query: String,
+        cursor: Cursor?,
+        kind: SearchKind,
+    ): Result<SearchPage> =
         withContext(Dispatchers.IO) {
-            ExtractorInit.ensureInitialised(downloader, poTokenProvider)
+            ExtractorInit.ensureInitialised(downloader, poTokenProvider, localeTag)
 
             runCatching {
-                val handler = youtube.searchQHFactory.fromQuery(query)
+                val handler = youtube.searchQHFactory.fromQuery(query, filtersFor(kind), "")
                 if (cursor == null) {
                     val info = SearchInfo.getInfo(youtube, handler)
                     toSearchPage(info.relatedItems, info.nextPage)
@@ -162,6 +170,16 @@ internal class ExtractorContentSource(
                 }
             }
         }
+
+    /**
+     * YouTube's own content filters. Asking for one kind is the only reliable way to
+     * find a channel: unfiltered, the results are almost entirely videos.
+     */
+    private fun filtersFor(kind: SearchKind): List<String> = when (kind) {
+        SearchKind.EVERYTHING -> emptyList()
+        SearchKind.CHANNELS -> listOf(YoutubeSearchQueryHandlerFactory.CHANNELS)
+        SearchKind.VIDEOS -> listOf(YoutubeSearchQueryHandlerFactory.VIDEOS)
+    }
 
     private fun toSearchPage(items: List<InfoItem>, next: Page?): SearchPage {
         val results = items.mapNotNull { item ->

@@ -34,7 +34,7 @@ fun KidShell(
     destination: KidDestination,
     onDestinationChange: (KidDestination) -> Unit,
     snapshot: LibrarySnapshot,
-    sections: List<HomeSection>,
+    home: HomeScreenModel,
     resumePositions: Map<String, Long>,
     openChannel: Channel?,
     onOpenChannel: (Channel?) -> Unit,
@@ -71,10 +71,9 @@ fun KidShell(
                 } else {
                     when (destination) {
                         KidDestination.HOME -> KidHomeScreen(
-                            sections = sections,
+                            model = home,
                             resumePositions = resumePositions,
                             onPlay = onPlay,
-                            onOpenChannel = { onOpenChannel(it) },
                         )
 
                         KidDestination.CHANNELS -> KidChannelsScreen(

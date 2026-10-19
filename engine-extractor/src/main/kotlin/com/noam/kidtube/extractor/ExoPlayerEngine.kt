@@ -60,6 +60,26 @@ internal class ExoVideoPlayer(
                     )
                 }
 
+                /**
+                 * Pausing does not change the playback state - a paused player is still
+                 * READY - so onPlaybackStateChanged never fired for it and the UI never
+                 * learned the video had stopped. The button stayed on "pause" and kept
+                 * calling pause(), which is why a paused video could not be resumed.
+                 */
+                override fun onIsPlayingChanged(isPlaying: Boolean) {
+                    val current = mutableState.value.phase
+                    // Terminal states are not something play/pause can undo.
+                    if (current == PlaybackPhase.ENDED || current == PlaybackPhase.FAILED) return
+                    mutableState.value = mutableState.value.copy(
+                        phase = when {
+                            isPlaying -> PlaybackPhase.PLAYING
+                            playbackState == Player.STATE_BUFFERING -> PlaybackPhase.BUFFERING
+                            else -> PlaybackPhase.PAUSED
+                        },
+                        durationMs = duration.coerceAtLeast(0),
+                    )
+                }
+
                 override fun onPlayerError(error: PlaybackException) {
                     // Stream URLs expire after a few hours, so a long video or a device
                     // waking from sleep lands here, and one re-resolve normally fixes it.
@@ -123,9 +143,11 @@ internal class ExoVideoPlayer(
         }
 
         onPlayerThread {
-            exo.setMediaSource(source)
+            // The start position goes in with the source rather than as a seek after
+            // prepare(): before the timeline exists there is nothing to seek within, and
+            // the seek was being dropped - which is why resuming always began at zero.
+            exo.setMediaSource(source, positionMs.coerceAtLeast(0))
             exo.prepare()
-            if (positionMs > 0) exo.seekTo(positionMs)
             exo.playWhenReady = true
         }
         startTicker()

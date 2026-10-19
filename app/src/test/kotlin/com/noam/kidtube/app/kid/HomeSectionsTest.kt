@@ -41,105 +41,74 @@ class HomeSectionsTest {
         }
 
     @Test
-    fun `an empty library has no sections at all`() {
-        assertTrue(HomeSections.build(LibrarySnapshot(emptyList(), emptyList()), emptyList()).isEmpty())
+    fun `an empty library has nothing on it`() {
+        val model = HomeSections.build(LibrarySnapshot(emptyList(), emptyList()), emptyList())
+
+        assertTrue(model.isEmpty)
+        assertTrue(model.all.isEmpty())
+        assertTrue(model.continueWatching.isEmpty())
     }
 
     @Test
-    fun `the newest row comes first and is ordered newest first`() {
-        val sections = HomeSections.build(snapshot, emptyList())
-        assertEquals(SectionKind.NEWEST, sections.first().kind)
-        assertEquals(listOf("k1", "s1", "k2", "s2"), sections.first().videos.map { it.id.value })
+    fun `the grid holds the whole library, newest first`() {
+        val model = HomeSections.build(snapshot, emptyList())
+
+        assertEquals(listOf("k1", "s1", "k2", "s2"), model.all.map { it.id.value })
     }
 
     @Test
-    fun `continue watching comes before everything when there is something to resume`() {
-        val sections = HomeSections.build(snapshot, resume("k2"))
-        assertEquals(SectionKind.CONTINUE_WATCHING, sections.first().kind)
-        assertEquals(listOf("k2"), sections.first().videos.map { it.id.value })
+    fun `the whole library is reachable, however large it is`() {
+        // Home used to cap each row, which meant a library of a hundred videos had
+        // eighty the child could not get to from the home screen at all.
+        val many = (1..100).map { video(kids, "v" + it, it.toLong()) }
+        val big = LibrarySnapshot(listOf(Channel(kids, "Kids", null, "f", 1L)), many)
+
+        assertEquals(100, HomeSections.build(big, emptyList()).all.size)
     }
 
     @Test
-    fun `continue watching is omitted entirely when there is nothing to resume`() {
-        assertTrue(HomeSections.build(snapshot, emptyList()).none { it.kind == SectionKind.CONTINUE_WATCHING })
+    fun `continue watching holds what was part-watched`() {
+        val model = HomeSections.build(snapshot, resume("k2"))
+
+        assertEquals(listOf("k2"), model.continueWatching.map { it.id.value })
+    }
+
+    @Test
+    fun `continue watching is empty when there is nothing to resume`() {
+        assertTrue(HomeSections.build(snapshot, emptyList()).continueWatching.isEmpty())
     }
 
     @Test
     fun `a resume point for a video no longer approved is dropped`() {
         // The parent removed the channel, or blocked the video, after it was watched.
-        val sections = HomeSections.build(snapshot, resume("gone-from-library"))
-        assertTrue(sections.none { it.kind == SectionKind.CONTINUE_WATCHING })
+        val model = HomeSections.build(snapshot, resume("gone-from-library"))
+
+        assertTrue(model.continueWatching.isEmpty())
     }
 
     @Test
     fun `continue watching keeps the order the resume list gave it`() {
-        val sections = HomeSections.build(snapshot, resume("s2", "k1"))
-        assertEquals(listOf("s2", "k1"), sections.first().videos.map { it.id.value })
+        val model = HomeSections.build(snapshot, resume("s2", "k1"))
+
+        assertEquals(listOf("s2", "k1"), model.continueWatching.map { it.id.value })
     }
 
     @Test
-    fun `every channel with videos gets its own row`() {
-        val sections = HomeSections.build(snapshot, emptyList())
-        val channelRows = sections.filter { it.kind == SectionKind.CHANNEL }
-        assertEquals(listOf("Kids", "Science"), channelRows.map { it.channel?.title })
-    }
-
-    @Test
-    fun `a channel row holds only that channel's videos, newest first`() {
-        val row = HomeSections.build(snapshot, emptyList())
-            .first { it.kind == SectionKind.CHANNEL && it.channel?.id == kids }
-        assertEquals(listOf("k1", "k2"), row.videos.map { it.id.value })
-    }
-
-    @Test
-    fun `a channel with nothing in it produces no row`() {
-        val withEmpty = snapshot.copy(
-            channels = snapshot.channels + Channel(ChannelId("UC_empty"), "Empty", null, "f", 1L),
-        )
-        val rows = HomeSections.build(withEmpty, emptyList()).filter { it.kind == SectionKind.CHANNEL }
-        assertEquals(2, rows.size)
-    }
-
-    @Test
-    fun `individually approved videos appear in the newest row but make no channel row`() {
-        val loose = video(ChannelId(""), "single1", 950)
-        val withSingle = snapshot.copy(videos = listOf(loose) + snapshot.videos)
-        val sections = HomeSections.build(withSingle, emptyList())
-
-        assertEquals("single1", sections.first { it.kind == SectionKind.NEWEST }.videos.first().id.value)
-        assertEquals(2, sections.count { it.kind == SectionKind.CHANNEL })
-    }
-
-    @Test
-    fun `rows are capped so home stays a home rather than the whole library`() {
+    fun `the resume row stays short enough to scan`() {
         val many = (1..100).map { video(kids, "v" + it, it.toLong()) }
         val big = LibrarySnapshot(listOf(Channel(kids, "Kids", null, "f", 1L)), many)
-        val sections = HomeSections.build(big, emptyList())
-        assertTrue(sections.all { it.videos.size <= HomeSections.ROW_LIMIT })
-    }
+        val everything = many.map { it.id.value }.toTypedArray()
 
-    // A single approved channel means the newest row and that channel's row hold exactly
-    // the same videos, and the home screen shows every tile twice.
+        val model = HomeSections.build(big, resume(*everything))
 
-    @Test
-    fun `one channel gets no row of its own`() {
-        val oneChannel = LibrarySnapshot(
-            channels = listOf(Channel(kids, "Kids", null, "f1", 1L)),
-            videos = listOf(video(kids, "k1", 900), video(kids, "k2", 700)),
-        )
-
-        val kinds = HomeSections.build(oneChannel, emptyList()).map { it.kind }
-
-        assertEquals(listOf(SectionKind.NEWEST), kinds)
+        assertEquals(HomeSections.ROW_LIMIT, model.continueWatching.size)
     }
 
     @Test
-    fun `two channels each get a row, because now the grouping says something`() {
-        val kinds = HomeSections.build(snapshot, emptyList()).map { it.kind }
+    fun `individually approved videos sit in the grid like any other`() {
+        val loose = video(ChannelId(""), "single1", 950)
+        val withSingle = snapshot.copy(videos = listOf(loose) + snapshot.videos)
 
-        assertEquals(
-            listOf(SectionKind.NEWEST, SectionKind.CHANNEL, SectionKind.CHANNEL),
-            kinds,
-        )
+        assertEquals("single1", HomeSections.build(withSingle, emptyList()).all.first().id.value)
     }
 }

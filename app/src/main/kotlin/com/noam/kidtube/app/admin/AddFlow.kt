@@ -9,6 +9,7 @@ import com.noam.kidtube.engine.ChannelUrlParser
 import com.noam.kidtube.engine.ContentSource
 import com.noam.kidtube.engine.Cursor
 import com.noam.kidtube.engine.PastedLink
+import com.noam.kidtube.engine.SearchKind
 import com.noam.kidtube.engine.SearchPage
 import com.noam.kidtube.engine.SearchResult
 import com.noam.kidtube.engine.UnsupportedReason
@@ -75,11 +76,15 @@ class AddFlow(
      * Searches YouTube for the parent. Behind the password, and approving nothing by
      * itself: the results are a list to choose from.
      */
-    suspend fun search(query: String, cursor: Cursor? = null): Result<SearchPage> =
+    suspend fun search(
+        query: String,
+        cursor: Cursor? = null,
+        kind: SearchKind = SearchKind.EVERYTHING,
+    ): Result<SearchPage> =
         if (query.isBlank()) {
             Result.success(SearchPage(emptyList(), null))
         } else {
-            contentSource.search(query, cursor)
+            contentSource.search(query, cursor, kind)
         }
 
     /**

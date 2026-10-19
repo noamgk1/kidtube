@@ -20,48 +20,39 @@ data class LibrarySnapshot(
     val isEmpty: Boolean get() = videos.isEmpty()
 }
 
-enum class SectionKind { CONTINUE_WATCHING, NEWEST, CHANNEL }
-
-data class HomeSection(
-    val kind: SectionKind,
-    val videos: List<VideoRef>,
-    /** Set only for [SectionKind.CHANNEL]. */
-    val channel: Channel? = null,
-)
+/**
+ * What the child's home screen is made of: at most one row to pick up from, and then
+ * every approved video.
+ *
+ * It used to carry a row per channel as well, and cap each row. Both are gone. Home is
+ * one vertical grid now, because rows of rows asked a child to scroll down through them
+ * and sideways inside each one to see everything, and the cap meant the library held
+ * videos that home could not reach at all. Browsing by channel still exists, on the
+ * screen that is actually about channels.
+ */
+data class HomeScreenModel(
+    /** Most recently watched first. Empty when there is nothing part-watched. */
+    val continueWatching: List<VideoRef>,
+    /** Everything approved, newest first. */
+    val all: List<VideoRef>,
+) {
+    val isEmpty: Boolean get() = all.isEmpty()
+}
 
 /** Builds the child's home screen out of a snapshot. Pure, so every rule is testable. */
 object HomeSections {
 
-    /** A home screen is a starting point, not the whole library. */
+    /** The resume row is a row, so it stays short enough to scan without scrolling far. */
     const val ROW_LIMIT: Int = 20
 
-    fun build(snapshot: LibrarySnapshot, resume: List<ResumePoint>): List<HomeSection> {
-        if (snapshot.isEmpty) return emptyList()
-
-        val sections = mutableListOf<HomeSection>()
+    fun build(snapshot: LibrarySnapshot, resume: List<ResumePoint>): HomeScreenModel {
+        if (snapshot.isEmpty) return HomeScreenModel(emptyList(), emptyList())
 
         // A resume point survives only while its video is still approved: the parent may
         // have blocked it, or removed its channel, since it was watched.
         val byId = snapshot.videos.associateBy { it.id.value }
         val resumable = resume.mapNotNull { byId[it.videoId] }.take(ROW_LIMIT)
-        if (resumable.isNotEmpty()) {
-            sections += HomeSection(SectionKind.CONTINUE_WATCHING, resumable)
-        }
 
-        sections += HomeSection(SectionKind.NEWEST, snapshot.videos.take(ROW_LIMIT))
-
-        // With a single approved channel its row would repeat the newest row exactly,
-        // and the child would see every tile twice. Grouping by channel only says
-        // something once there is more than one channel to tell apart.
-        if (snapshot.channels.size > 1) {
-            snapshot.channels.forEach { channel ->
-                val videos = snapshot.forChannel(channel).take(ROW_LIMIT)
-                if (videos.isNotEmpty()) {
-                    sections += HomeSection(SectionKind.CHANNEL, videos, channel)
-                }
-            }
-        }
-
-        return sections
+        return HomeScreenModel(continueWatching = resumable, all = snapshot.videos)
     }
 }

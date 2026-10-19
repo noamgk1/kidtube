@@ -42,6 +42,15 @@ sealed interface SearchResult {
 
 data class SearchPage(val results: List<SearchResult>, val next: Cursor?)
 
+/**
+ * What a search should come back with.
+ *
+ * YouTube's unfiltered search is overwhelmingly videos, so a parent looking for a
+ * channel to approve had to hunt for the one channel buried among them. Asking for one
+ * kind is the difference between finding a channel and giving up on it.
+ */
+enum class SearchKind { EVERYTHING, CHANNELS, VIDEOS }
+
 interface ContentSource {
     suspend fun resolveChannel(url: String): Result<Channel>
 
@@ -52,5 +61,9 @@ interface ContentSource {
     suspend fun latestVideos(channelId: ChannelId, feedUrl: String): Result<List<VideoRef>>
 
     /** Searches YouTube on the parent's behalf. Pass null for the first page. */
-    suspend fun search(query: String, cursor: Cursor?): Result<SearchPage>
+    suspend fun search(
+        query: String,
+        cursor: Cursor?,
+        kind: SearchKind = SearchKind.EVERYTHING,
+    ): Result<SearchPage>
 }
