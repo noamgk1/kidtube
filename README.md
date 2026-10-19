@@ -89,6 +89,21 @@ Two ways to approve content, both on the parent screen:
 Approving a **channel** also allows whatever it uploads in future; approving a **video**
 allows that video and nothing else from its channel.
 
+### Video quality
+
+YouTube serves content labelled **Made-for-Kids** a single 360p stream when the video is
+extracted — measured: one muxed 360p and no adaptive tracks at all, against fourteen
+tracks up to 2160p for a general-audience control through the identical path. There is
+nothing better to choose, and a PO token does not move it. Every well-known children's
+channel carries that label.
+
+**הגדרות** offers YouTube's own embedded player instead, which is not held to that cap.
+Two costs, both real: the video is drawn by YouTube's player inside the app rather than
+by ours, and it needs YouTube's JavaScript. Touches are swallowed before they reach it
+and nothing is allowed to navigate, so the child cannot reach an end screen or
+"watch on YouTube" — but it is less isolation than the extractor engine gives, which is
+why it is a choice rather than the default. Switching takes effect on the next launch.
+
 ### Hebrew titles
 
 YouTube is asked for Hebrew and returns the creator's own Hebrew title wherever one was

@@ -41,6 +41,11 @@ desugar-jdk-libs-nio = { module = "com.android.tools:desugar_jdk_libs_nio", vers
 # language model is downloaded at runtime, so it needs no Google Play Services.
 # Proprietary, which matters for redistribution - see the licence note in the README.
 mlkit-translate = { module = "com.google.mlkit:translate", version = "17.0.3" }
+# WebViewAssetLoader, which serves local files from a real https origin. YouTube's
+# IFrame API checks the embedding origin and rejects the opaque one that
+# loadDataWithBaseURL produces - measured, it answers "error 152" even for a video that
+# embeds fine on the open web.
+androidx-webkit = { module = "androidx.webkit:webkit", version = "1.12.1" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

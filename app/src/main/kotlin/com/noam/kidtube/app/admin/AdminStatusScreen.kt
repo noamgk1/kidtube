@@ -36,6 +36,8 @@ fun AdminStatusScreen(
     translateTitles: Boolean,
     onTranslateTitlesChange: (Boolean) -> Unit,
     translatedCount: Int,
+    embeddedPlayer: Boolean,
+    onEmbeddedPlayerChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -72,6 +74,36 @@ fun AdminStatusScreen(
                     translatedCount.toString() + " כותרות תורגמו"
                 } else {
                     "כבוי — הכותרות יוצגו בשפת המקור"
+                },
+                modifier = Modifier.padding(start = 12.dp),
+            )
+        }
+
+        Text(
+            text = "איכות הווידאו",
+            style = MaterialTheme.typography.titleLarge,
+            modifier = Modifier.padding(top = 32.dp),
+        )
+        Text(
+            "יוטיוב מגביל תוכן המסומן \"לילדים\" ל-360p כשמחלצים ממנו את הווידאו — " +
+                "נמדד, ואין איכות אחרת להציע. הנגן המוטמע של יוטיוב אינו כפוף לזה. " +
+                "המחיר: הווידאו מצויר בנגן של יוטיוב בתוך האפליקציה. מגע בתוכו חסום, " +
+                "אבל זו פחות בידוד מהנגן שלנו.",
+        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(top = 12.dp),
+        ) {
+            Switch(
+                checked = embeddedPlayer,
+                onCheckedChange = onEmbeddedPlayerChange,
+                modifier = Modifier.testTag("embedded-switch"),
+            )
+            Text(
+                text = if (embeddedPlayer) {
+                    "נגן יוטיוב מוטמע — ייכנס לתוקף בפתיחה הבאה של האפליקציה"
+                } else {
+                    "הנגן שלנו — תוכן לילדים יוגבל ל-360p"
                 },
                 modifier = Modifier.padding(start = 12.dp),
             )

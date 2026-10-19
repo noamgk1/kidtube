@@ -30,11 +30,22 @@ class ExtractorEngineBundle internal constructor(
 /** The only entry point into the extractor engine. */
 object ExtractorEngine {
 
+    /**
+     * [embedded] swaps extracted streams for YouTube's own embedded player.
+     *
+     * Only the playback half changes: the same content source lists the same approved
+     * videos either way. It exists because Made-for-Kids content is served a single 360p
+     * stream through extraction and nothing better exists to choose, while YouTube's own
+     * player is not held to that. Everything else about it is worse - a WebView, and the
+     * video drawn by someone else's player - so it is the parent's choice, not the
+     * default.
+     */
     fun create(
         appContext: Context,
         clock: Clock = SystemClockImpl,
         maxHeight: Int = 1080,
         preferredLocaleTag: String = "he-IL",
+        embedded: Boolean = false,
     ): ExtractorEngineBundle {
         val session = PoTokenSession(WebViewPoTokenGenerator(appContext), clock)
         val downloader = OkDownloader()
@@ -44,13 +55,16 @@ object ExtractorEngine {
                 downloader,
                 localeTag = preferredLocaleTag,
             ),
-            playbackResolver = ExtractorPlaybackResolver(
-                session,
-                downloader,
-                maxHeight,
-                preferredLocaleTag,
-            ),
-            playerEngine = ExoPlayerEngine(appContext),
+            playbackResolver = if (embedded) {
+                EmbeddedPlaybackResolver(session, downloader)
+            } else {
+                ExtractorPlaybackResolver(session, downloader, maxHeight, preferredLocaleTag)
+            },
+            playerEngine = if (embedded) {
+                EmbeddedPlayerEngine(appContext)
+            } else {
+                ExoPlayerEngine(appContext)
+            },
             health = session.health,
             releaseSession = session::release,
         )

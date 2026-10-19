@@ -511,6 +511,11 @@ private fun AdminHost(graph: Graph, authenticator: AdminAuthenticator, onExit: (
     val translatedCount by produceState(0, version) {
         value = withContext(Dispatchers.IO) { graph.translationStore.all().size }
     }
+    val embeddedPlayer by produceState(false, version) {
+        value = withContext(Dispatchers.IO) {
+            graph.settingsStore.load().engineId == EMBEDDED_ENGINE_ID
+        }
+    }
 
     // Drives the nudge to stop using the factory password. A file read and a hash, so it
     // is computed off the main thread and refreshed whenever the admin screen changes.
@@ -787,6 +792,19 @@ private fun AdminHost(graph: Graph, authenticator: AdminAuthenticator, onExit: (
                         }
                     },
                     translatedCount = translatedCount,
+                    embeddedPlayer = embeddedPlayer,
+                    onEmbeddedPlayerChange = { wanted ->
+                        scope.launch {
+                            withContext(Dispatchers.IO) {
+                                graph.settingsStore.save(
+                                    graph.settingsStore.load().copy(
+                                        engineId = if (wanted) EMBEDDED_ENGINE_ID else "extractor",
+                                    ),
+                                )
+                            }
+                            version++
+                        }
+                    },
                     modifier = content,
                 )
             }

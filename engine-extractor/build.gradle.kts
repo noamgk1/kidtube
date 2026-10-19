@@ -31,6 +31,7 @@ dependencies {
     implementation(libs.jsoup)
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.ui)
+    implementation(libs.androidx.webkit)
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)
     coreLibraryDesugaring(libs.desugar.jdk.libs.nio)

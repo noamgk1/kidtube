@@ -59,6 +59,9 @@ class Graph(
     val corruptions: List<String>,
 )
 
+/** The value [com.noam.kidtube.core.Settings.engineId] carries for the embedded player. */
+const val EMBEDDED_ENGINE_ID: String = "embedded"
+
 object Wiring {
 
     @Volatile
@@ -91,7 +94,11 @@ object Wiring {
         AdminAuthenticator(whitelistStore = whitelistStore, catalogStore = catalogStore,
             ledger = watchLedger, settingsStore = settingsStore).ensureDefaultPassword()
 
-        val engine = ExtractorEngine.create(appContext, clock)
+        // Which playback engine the parent chose. Read once at startup: swapping it
+        // mid-session would mean tearing down a player that may be on screen, and the
+        // choice is made rarely enough that a restart is a fair price.
+        val embedded = settingsStore.load().engineId == EMBEDDED_ENGINE_ID
+        val engine = ExtractorEngine.create(appContext, clock, embedded = embedded)
 
         return Graph(
             clock = clock,

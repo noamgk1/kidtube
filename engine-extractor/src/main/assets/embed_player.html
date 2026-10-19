@@ -1,0 +1,67 @@
+<!doctype html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <style>
+    html, body { margin: 0; padding: 0; height: 100%; background: #000; overflow: hidden; }
+    #player { width: 100%; height: 100%; }
+    /*
+      Swallows every touch before it can reach YouTube's player. The app draws its own
+      controls; nothing here should be tappable, because what is tappable inside that
+      iframe is YouTube's - end screens, the channel name, "watch on YouTube".
+    */
+    #shield { position: fixed; inset: 0; z-index: 10; background: transparent; }
+  </style>
+</head>
+<body>
+  <div id="player"></div>
+  <div id="shield"></div>
+  <script src="https://www.youtube.com/iframe_api"></script>
+  <script>
+    var player = null;
+    var ready = false;
+
+    function post(kind, value) {
+      if (window.KidTube) { window.KidTube.onEvent(kind, String(value)); }
+    }
+
+    function onYouTubeIframeAPIReady() {
+      player = new YT.Player('player', {
+        height: '100%',
+        width: '100%',
+        playerVars: {
+          autoplay: 0,
+          controls: 0,
+          playsinline: 1,
+          rel: 0,
+          fs: 0,
+          disablekb: 1,
+          iv_load_policy: 3,
+          modestbranding: 1
+        },
+        events: {
+          onReady: function () { ready = true; post('ready', ''); },
+          onStateChange: function (e) { post('state', e.data); },
+          onError: function (e) { post('error', e.data); }
+        }
+      });
+    }
+
+    // Driven from Kotlin. Each is a no-op until the API has loaded, and the app waits
+    // for 'ready' before calling any of them.
+    function loadVideo(videoId, startSeconds) {
+      if (!ready) { return; }
+      player.loadVideoById({ videoId: videoId, startSeconds: startSeconds });
+    }
+    function play() { if (ready) { player.playVideo(); } }
+    function pause() { if (ready) { player.pauseVideo(); } }
+    function seek(seconds) { if (ready) { player.seekTo(seconds, true); } }
+
+    // One pump for position and duration rather than a call per frame.
+    setInterval(function () {
+      if (!ready || !player.getCurrentTime) { return; }
+      post('time', player.getCurrentTime() + ':' + player.getDuration());
+    }, 500);
+  </script>
+</body>
+</html>
