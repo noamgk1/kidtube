@@ -1,10 +1,13 @@
 package com.noam.kidtube.app.admin
 
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
 import com.noam.kidtube.core.Channel
 import com.noam.kidtube.core.ChannelId
 import com.noam.kidtube.core.VideoId
@@ -90,5 +93,43 @@ class AdminContentScreenTest {
 
         compose.onNodeWithText("ערוצים מאושרים").assertDoesNotExist()
         compose.onNodeWithText("סרטונים בודדים").assertDoesNotExist()
+    }
+
+    // A parent who has approved a lot has to scroll to change their mind about any of
+    // it, which is the complaint the filter answers.
+
+    @Test
+    fun aShortListNeedsNoFilter() {
+        compose.setContent { Screen(channels = listOf(channel), singleVideos = listOf(solo)) }
+
+        compose.onNodeWithText("סינון לפי שם").assertDoesNotExist()
+    }
+
+    @Test
+    fun aLongListOffersOneAndItNarrowsBothKinds() {
+        val many = (1..6).map {
+            Channel(ChannelId("UC_" + it), "Channel " + it, null, "feed", 1L)
+        }
+        compose.setContent { Screen(channels = many, singleVideos = listOf(solo)) }
+
+        compose.onNodeWithText("סינון לפי שם").performTextInput("Channel 3")
+
+        // Twice: the filter box now holds the text as well as the row it matched.
+        compose.onAllNodesWithText("Channel 3", substring = true).assertCountEquals(2)
+        compose.onNodeWithText("Channel 4", substring = true).assertDoesNotExist()
+        // The single video is filtered by the same box, not left behind by it.
+        compose.onNodeWithText("A Single Song", substring = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun aFilterThatMatchesNothingSaysSoRatherThanLookingEmpty() {
+        val many = (1..6).map {
+            Channel(ChannelId("UC_" + it), "Channel " + it, null, "feed", 1L)
+        }
+        compose.setContent { Screen(channels = many) }
+
+        compose.onNodeWithText("סינון לפי שם").performTextInput("nothing like this")
+
+        compose.onNodeWithText("אין תוכן מאושר בשם הזה").assertIsDisplayed()
     }
 }

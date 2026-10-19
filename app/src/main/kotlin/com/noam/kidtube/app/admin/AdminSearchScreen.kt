@@ -72,6 +72,8 @@ fun AdminSearchScreen(
     onToggle: (SearchResult) -> Unit,
     approvedKeys: Set<String>,
     onApproveSelected: () -> Unit,
+    /** Takes an already-approved result back off the list, from the same search. */
+    onRemove: (SearchResult) -> Unit,
     onLoadMore: (() -> Unit)?,
     notice: String?,
     modifier: Modifier = Modifier,
@@ -155,6 +157,7 @@ fun AdminSearchScreen(
                     checked = key in selected,
                     alreadyApproved = key in approvedKeys,
                     onToggle = { onToggle(result) },
+                    onRemove = { onRemove(result) },
                 )
             }
 
@@ -178,6 +181,7 @@ private fun SearchResultRow(
     checked: Boolean,
     alreadyApproved: Boolean,
     onToggle: () -> Unit,
+    onRemove: () -> Unit,
 ) {
     Card(modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
         Row(
@@ -266,12 +270,23 @@ private fun SearchResultRow(
             }
 
             if (alreadyApproved) {
-                Text(
-                    text = "כבר מאושר",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(start = 8.dp),
-                )
+                // Removable from here rather than only from the content list: a parent
+                // who searched to find something is in the right place to change their
+                // mind about it, and hunting for it again on another screen is work the
+                // search has already done.
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "כבר מאושר",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    TextButton(
+                        onClick = onRemove,
+                        modifier = Modifier.testTag("unapprove-" + searchKeyOf(result)),
+                    ) {
+                        Text("הסר")
+                    }
+                }
             }
         }
     }

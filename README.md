@@ -90,9 +90,15 @@ Approving a **channel** also allows whatever it uploads in future; approving a *
 allows that video and nothing else from its channel. Both are listed under **תכנים**
 with a **הסר** beside them — channels under *ערוצים מאושרים*, individually approved
 videos under *סרטונים בודדים*, each shown with its video id so two similarly named clips
-can be told apart.
+can be told apart. Past five approved items that list grows a filter box.
 
-The child's home screen can be ordered by **חדשים / ישנים / קצרים / ארוכים**. A video
+Anything already approved can also be removed straight from **חיפוש**, on the row where
+it says *כבר מאושר*. Finding something and changing your mind about it are the same
+search, so they are the same screen.
+
+The home screen and each channel's page can be ordered by
+**חדשים / ישנים / קצרים / ארוכים** — the same four words in the same place on both, so
+the control is learned once. A video
 with no date or no duration — the RSS fast path carries no duration, so that is every
 day's newest arrivals — sorts last rather than leading "shortest", and is never dropped.
 

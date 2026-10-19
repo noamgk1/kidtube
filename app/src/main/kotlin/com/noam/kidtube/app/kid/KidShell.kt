@@ -68,6 +68,8 @@ fun KidShell(
                         channel = channel,
                         videos = snapshot.forChannel(channel),
                         resumePositions = resumePositions,
+                        sort = sort,
+                        onSortChange = onSortChange,
                         onPlay = onPlay,
                         onBack = { onOpenChannel(null) },
                     )

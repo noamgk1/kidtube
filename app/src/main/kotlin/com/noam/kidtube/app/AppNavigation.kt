@@ -520,6 +520,23 @@ private fun AdminSearchHost(
                 onChanged()
             }
         },
+        onRemove = { result ->
+            scope.launch {
+                withContext(Dispatchers.IO) {
+                    when (result) {
+                        is SearchResult.ChannelHit -> {
+                            graph.whitelistStore.removeChannel(result.channel.id)
+                            graph.catalogStore.delete(result.channel.id)
+                        }
+
+                        is SearchResult.VideoHit ->
+                            graph.whitelistStore.removeSingleVideo(result.video.id)
+                    }
+                }
+                approvedVersion++
+                onChanged()
+            }
+        },
         onLoadMore = nextCursor?.let { cursor -> { runSearch(cursor) } },
         notice = notice,
         modifier = modifier,

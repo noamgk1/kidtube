@@ -33,6 +33,8 @@ import coil.compose.AsyncImage
 import com.noam.kidtube.core.BidiText
 import com.noam.kidtube.core.Channel
 import com.noam.kidtube.core.VideoRef
+import com.noam.kidtube.core.VideoSort
+import com.noam.kidtube.core.VideoSorting
 
 /** Every approved channel as a big round face. */
 @Composable
@@ -92,6 +94,8 @@ fun KidChannelScreen(
     channel: Channel,
     videos: List<VideoRef>,
     resumePositions: Map<String, Long>,
+    sort: VideoSort,
+    onSortChange: (VideoSort) -> Unit,
     onPlay: (VideoRef) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
@@ -128,13 +132,15 @@ fun KidChannelScreen(
             )
         }
 
+        SortChips(sort = sort, onSortChange = onSortChange, modifier = Modifier.padding(top = 4.dp))
+
         LazyVerticalGrid(
             columns = GridCells.Adaptive(minSize = CARD_WIDTH),
             contentPadding = PaddingValues(12.dp),
             horizontalArrangement = Arrangement.Start,
             modifier = Modifier.fillMaxSize(),
         ) {
-            items(videos, key = { it.id.value }) { video ->
+            items(VideoSorting.apply(videos, sort), key = { it.id.value }) { video ->
                 VideoCard(
                     video = video,
                     resumePositionMs = resumePositions[video.id.value] ?: 0L,

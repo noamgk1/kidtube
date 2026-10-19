@@ -15,6 +15,10 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.Modifier
@@ -25,6 +29,7 @@ import com.noam.kidtube.core.Channel
 import com.noam.kidtube.core.ChannelId
 import com.noam.kidtube.core.SyncState
 import com.noam.kidtube.core.VideoId
+import com.noam.kidtube.core.VideoSearch
 import com.noam.kidtube.core.VideoRef
 import com.noam.kidtube.engine.UnsupportedReason
 
@@ -121,12 +126,36 @@ fun AdminContentScreen(
             }
         }
 
+        // Approving is easy to do a lot of, and a list of fifty channels and a hundred
+        // single videos is one a parent has to scroll to change their mind about.
+        var filter by remember { mutableStateOf("") }
+        if (channels.size + singleVideos.size > FILTER_APPEARS_ABOVE) {
+            OutlinedTextField(
+                value = filter,
+                onValueChange = { filter = it },
+                singleLine = true,
+                label = { Text("סינון לפי שם") },
+                modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+            )
+        }
+
+        val shownChannels = channels.filter { VideoSearch.matches(it.title, filter) }
+        val shownSingles = singleVideos.filter { VideoSearch.matches(it.title, filter) }
+
+        if (filter.isNotBlank() && shownChannels.isEmpty() && shownSingles.isEmpty()) {
+            Text(
+                text = "אין תוכן מאושר בשם הזה",
+                color = MaterialTheme.colorScheme.outline,
+                modifier = Modifier.padding(top = 16.dp),
+            )
+        }
+
         LazyColumn(modifier = Modifier.fillMaxSize().padding(top = 24.dp)) {
-            if (channels.isNotEmpty()) {
+            if (shownChannels.isNotEmpty()) {
                 item { SectionLabel("ערוצים מאושרים") }
             }
 
-            items(channels, key = { it.id.value }) { channel ->
+            items(shownChannels, key = { it.id.value }) { channel ->
                 val state = syncStates[channel.id.value]
                 Card(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
                     Column(Modifier.padding(16.dp)) {
@@ -160,11 +189,11 @@ fun AdminContentScreen(
                 }
             }
 
-            if (singleVideos.isNotEmpty()) {
+            if (shownSingles.isNotEmpty()) {
                 item { SectionLabel("סרטונים בודדים") }
             }
 
-            items(singleVideos, key = { it.id.value }) { video ->
+            items(shownSingles, key = { it.id.value }) { video ->
                 Card(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -195,6 +224,9 @@ fun AdminContentScreen(
         }
     }
 }
+
+/** Below this, scrolling is quicker than typing. */
+private const val FILTER_APPEARS_ABOVE = 5
 
 @Composable
 private fun SectionLabel(text: String) {

@@ -196,4 +196,17 @@ class KidShellTest {
         compose.onAllNodesWithTag("video-tile").assertCountEquals(1)
         compose.onNodeWithText("Allowed Video", substring = true).assertIsDisplayed()
     }
+
+    /** The same control on the channel page as on home, so it is learned once. */
+    @Test
+    fun aChannelPageSortsToo() {
+        compose.setContent { Shell() }
+
+        compose.onNodeWithText("ערוצים").performClick()
+        compose.onNodeWithText("Kids Songs", substring = true).performClick()
+
+        compose.onNodeWithTag("sort-SHORTEST").performClick()
+
+        compose.onAllNodesWithTag("video-tile").assertCountEquals(1)
+    }
 }
