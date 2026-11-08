@@ -58,7 +58,7 @@ class AdminAuthenticator(
 
     companion object {
         /** What the door is locked with until a parent changes it. */
-        const val DEFAULT_PASSWORD: String = "karmon1234"
+        const val DEFAULT_PASSWORD: String = "parent1234"
 
         /** Short enough to type on a tablet, long enough not to be guessed by a child. */
         const val MIN_PASSWORD_LENGTH: Int = 4

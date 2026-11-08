@@ -1,5 +1,10 @@
 # KidTube
 
+[![Licence: GPL v3](https://img.shields.io/badge/licence-GPLv3-blue.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-Android%208.0%2B-brightgreen.svg)](#building)
+[![Kotlin](https://img.shields.io/badge/kotlin-2.0-7f52ff.svg)](#building)
+[![Tests](https://img.shields.io/badge/tests-425%20unit%20passing-success.svg)](#status)
+
 An Android tablet app that plays YouTube **only** from a whitelist a parent approves.
 No server. Storage is plain files on the device. The parent's side lives in the same
 app behind a password.
@@ -8,6 +13,38 @@ The promise the design is built around: *no content the parent did not approve r
 the screen.* That is enforced structurally rather than by care — see
 [The ticket invariant](#the-ticket-invariant).
 
+## What it does
+
+- **A whitelist, not a filter.** A parent approves whole channels or single videos. Nothing
+  else is reachable — not through search, not through a related-videos rail, not by pasting
+  a link. There is no recommendation engine to escape from.
+- **Two interfaces in one APK.** The child gets a YouTube-shaped grid of large thumbnails
+  that works without reading or typing. The parent gets search, approval, a blocklist, a
+  daily time budget and a status screen, all behind a password.
+- **No server and no account.** The catalog, the settings and the watch history are plain
+  files in the app's private storage. Nothing is uploaded, and there is nothing to sign
+  into.
+- **A daily time budget** charged against `elapsedRealtime()`, so moving the device clock
+  mid-video buys nothing.
+- **Backups that carry no password**, so restoring one can never lock a parent out of their
+  own app.
+
+## Before you build this
+
+Read these four things first; each of them will matter to you.
+
+- **It is not on Google Play and cannot be.** The extractor engine works against YouTube's
+  internal API, which is contrary to YouTube's terms of service. You build and sideload it
+  yourself.
+- **The interface is in Hebrew**, and so are the UI strings in the source. The code,
+  comments and documentation are in English. There is no localisation layer yet.
+- **GPLv3, with one distribution trap.** On-device title translation uses the proprietary
+  ML Kit. Building and running that for yourself is fine; handing the APK to other people
+  is not. See [Licence](#licence) — it explains the one-line change that removes it.
+- **Kids content is capped at 360p by YouTube**, and we measured that it stays capped even
+  with a genuine proof-of-origin token. See [the gate result](#the-verification-gate-has-run-and-the-answer-is-the-adverse-one)
+  before you expect 1080p.
+
 - Design: [`docs/notes/specs/2026-10-18-kids-youtube-whitelist-design.md`](docs/notes/specs/2026-10-18-kids-youtube-whitelist-design.md)
 - Implementation plan: [`docs/notes/plans/2026-10-18-kids-youtube-whitelist.md`](docs/notes/plans/2026-10-18-kids-youtube-whitelist.md)
 
@@ -15,8 +52,8 @@ the screen.* That is enforced structurally rather than by care — see
 
 | | |
 |---|---|
-| Unit tests | 313, all passing |
-| Instrumented tests | 12, all passing on an Android 15 emulator |
+| Unit tests | **425, all passing** — verified 8 November 2026 (`./gradlew test`) |
+| Instrumented tests | 41 in the tree, needing a device or emulator. Several are opt-in: the network suite behind `-PnetworkTest=true`, and the proof-of-origin gate. Last recorded full run passed on an Android 15 emulator. |
 | `assembleDebug` | succeeds |
 
 ### The verification gate has run, and the answer is the adverse one
@@ -76,7 +113,7 @@ sideload.keyPassword=...
 ### First run
 
 The home screen is empty, because nothing is approved yet. **Press הורים in the top
-bar** to reach the parent screen. The password is `karmon1234` until you change it,
+bar** to reach the parent screen. The password is `parent1234` until you change it,
 which you can do under **הגדרות** — and should, before handing the tablet over.
 
 Two ways to approve content, both on the parent screen:
@@ -252,7 +289,7 @@ instantly and still works on a day when the engine is broken.
 
 ## One residual risk worth knowing
 
-The app ships with the password already set to `karmon1234`, and a destructive reset
+The app ships with the password already set to `parent1234`, and a destructive reset
 restores that same password rather than clearing it. That closes the hole a first-run
 prompt leaves open — on a device where no password has been chosen yet, the admin door
 cannot tell a parent from a child, and whoever holds it first would get to choose.
