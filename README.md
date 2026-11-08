@@ -99,6 +99,13 @@ adb logcat -d -s System.out | grep -E "GATE/|CANARY/"
 
 ## Installing it
 
+A signed APK is on the [releases page](https://github.com/noamgk1/kidtube/releases/latest)
+if you would rather not build it — take `app-arm64-v8a-release.apk` unless you know the
+tablet is something other than 64-bit ARM. Every release is signed with the same key
+(`CN=KidTube`), and the release notes carry its fingerprint and the file checksums.
+
+To build it yourself:
+
 The build splits by ABI and produces no universal APK, so there is no `app-release.apk` —
 pick the one matching the tablet. `arm64-v8a` is what any Android tablet made in the last
 several years wants.
