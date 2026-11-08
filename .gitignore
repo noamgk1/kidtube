@@ -16,5 +16,6 @@ local.properties
 Thumbs.db
 .DS_Store
 
-
+# Local working notes and tooling. Not part of the project.
+docs/
 .claude/

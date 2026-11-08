@@ -45,9 +45,6 @@ Read these four things first; each of them will matter to you.
   with a genuine proof-of-origin token. See [the gate result](#the-verification-gate-has-run-and-the-answer-is-the-adverse-one)
   before you expect 1080p.
 
-- Design: [`docs/notes/specs/2026-10-18-kids-youtube-whitelist-design.md`](docs/notes/specs/2026-10-18-kids-youtube-whitelist-design.md)
-- Implementation plan: [`docs/notes/plans/2026-10-18-kids-youtube-whitelist.md`](docs/notes/plans/2026-10-18-kids-youtube-whitelist.md)
-
 ## Status
 
 | | |
@@ -64,11 +61,25 @@ BotGuard-minted token was served to the client that asks for it, and kids conten
 returned a single muxed 360p stream, while the control video returned full adaptive
 2160p in the same run.
 
+| | Made-for-Kids video | General-audience control |
+|---|---|---|
+| No token | 360p muxed only | 2160p adaptive |
+| Real BotGuard token | **360p muxed only** | 2160p adaptive |
+
+The control returning 2160p in the same run is what makes the result trustworthy: the
+network and the library were working, so the cap is YouTube's answer and not a failure
+here.
+
+**The first run nearly read as a success, and it is worth knowing why.** The gate counted
+`webRequests=0` — NewPipeExtractor v0.26.5 never asks the web client at all, which is the
+only client the token applies to. So an early "the token is being used" reading was
+measuring nothing, and the token had to be proven served to the client that asks for it
+before the 360p number meant anything.
+
 So the expensive half of the engine choice bought nothing on this library version, and
-there is a real decision waiting — accept 360p, or bring the official-API engine
-forward. **Read [`docs/notes/notes/gate-result.md`](docs/notes/notes/gate-result.md)**;
-it has the raw output, the mistake the first run nearly led us into, and the three
-options.
+there is a real decision waiting: accept 360p for kids content, bring an official-API
+engine forward, or use the embedded player — which is what
+[Video quality](#video-quality) describes, and what the app does today.
 
 ```bash
 # connectedDebugAndroidTest has no --tests option; filter with the runner argument.
@@ -113,7 +124,9 @@ be handed around as if it were trusted. To sign with a real key, put this in
 `local.properties`:
 
 ```properties
-sideload.keystore=C:\path\to\your.jks
+# Forward slashes, even on Windows: a .properties file reads a backslash as an
+# escape, so a path written with them silently loses its separators.
+sideload.keystore=C:/path/to/your.jks
 sideload.storePassword=...
 sideload.keyAlias=...
 sideload.keyPassword=...

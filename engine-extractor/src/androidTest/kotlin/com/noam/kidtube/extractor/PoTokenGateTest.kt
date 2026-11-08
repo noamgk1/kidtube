@@ -62,14 +62,16 @@ private class CountingPoTokenProvider(
  * Made-for-Kids video with no token installed, across six channels. This test re-measures
  * on-device, with a token, and prints a verdict line.
  *
- * Run it, then record the answer in docs/notes/notes/gate-result.md:
+ * It has been run: the cap held. See "The verification gate has run" in the README for
+ * the numbers. Re-run it against a newer NewPipeExtractor to find out whether that is
+ * still true:
  *
  *   ./gradlew :engine-extractor:connectedDebugAndroidTest --tests '*PoTokenGateTest*' --info
  *
  *   maxHeight > 360  -> the cap lifts; the extractor engine stands as planned.
- *   maxHeight == 360 -> the cap holds; return to design spec section 2 and decide between
- *                       accepting 360p for kids content and bringing the official engine
- *                       forward.
+ *   maxHeight == 360 -> the cap holds, as it did on v0.26.5; the choice is between
+ *                       accepting 360p for kids content, bringing an official-API engine
+ *                       forward, and the embedded player the app offers today.
  */
 class PoTokenGateTest {
 
