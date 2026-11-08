@@ -22,6 +22,15 @@ class TitleTranslationPass(
     private val translator: TitleTranslator,
 ) {
 
+    /**
+     * Whether a translator is compiled into this build at all.
+     *
+     * The parent screen asks so it can leave the switch out rather than offer one that
+     * does nothing: with no translator, turning it on would report "0 translated" for
+     * ever and look like a bug in the sync.
+     */
+    val translatorInstalled: Boolean get() = translator.isInstalled
+
     /** Returns how many titles were newly translated. */
     suspend fun run(): Int {
         if (!settingsStore.load().translateTitles) return 0

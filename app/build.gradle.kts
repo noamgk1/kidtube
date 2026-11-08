@@ -100,7 +100,6 @@ dependencies {
     implementation(libs.androidx.work.runtime)
     implementation(libs.coil.compose)
     implementation(libs.media3.ui)
-    implementation(libs.mlkit.translate)
     coreLibraryDesugaring(libs.desugar.jdk.libs.nio)
 
     testImplementation(kotlin("test"))

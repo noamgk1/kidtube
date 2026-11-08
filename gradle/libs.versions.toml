@@ -37,10 +37,6 @@ nanojson = { module = "com.github.TeamNewPipe:nanojson", version = "e9d656ddb49a
 jsoup = { module = "org.jsoup:jsoup", version = "1.22.2" }
 turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
 desugar-jdk-libs-nio = { module = "com.android.tools:desugar_jdk_libs_nio", version.ref = "desugar" }
-# On-device translation. The standalone build: the engine ships in the APK and the
-# language model is downloaded at runtime, so it needs no Google Play Services.
-# Proprietary, which matters for redistribution - see the licence note in the README.
-mlkit-translate = { module = "com.google.mlkit:translate", version = "17.0.3" }
 # WebViewAssetLoader, which serves local files from a real https origin. YouTube's
 # IFrame API checks the embedding origin and rejects the opaque one that
 # loadDataWithBaseURL produces - measured, it answers "error 152" even for a video that

@@ -36,6 +36,8 @@ fun AdminStatusScreen(
     translateTitles: Boolean,
     onTranslateTitlesChange: (Boolean) -> Unit,
     translatedCount: Int,
+    /** False in the open-source build, which ships no translator. */
+    translatorInstalled: Boolean,
     embeddedPlayer: Boolean,
     onEmbeddedPlayerChange: (Boolean) -> Unit,
     /** What the embedded player last settled on, e.g. "hd1080". Empty until it plays. */
@@ -56,28 +58,43 @@ fun AdminStatusScreen(
             modifier = Modifier.padding(top = 32.dp),
         )
         Text(
-            "יוטיוב מחזיר כותרת בעברית רק אם יוצר הערוץ פרסם אחת. בשאר המקרים " +
-                "האפליקציה מתרגמת על המכשיר עצמו — שום דבר לא נשלח החוצה. " +
-                "התרגום אוטומטי, ולפעמים מגושם.",
+            "יוטיוב מחזיר כותרת בעברית רק אם יוצר הערוץ פרסם אחת. האפליקציה מבקשת " +
+                "עברית, ולכן כל כותרת שיש לה תרגום מקורי תוצג בעברית.",
         )
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(top = 12.dp),
-        ) {
-            Switch(
-                checked = translateTitles,
-                onCheckedChange = onTranslateTitlesChange,
-                modifier = Modifier.testTag("translate-switch"),
-            )
+        if (translatorInstalled) {
             Text(
-                text = if (translateTitles) {
-                    // The count is the only honest progress signal: the model downloads
-                    // over Wi-Fi only, and until it lands nothing is translated.
-                    translatedCount.toString() + " כותרות תורגמו"
-                } else {
-                    "כבוי — הכותרות יוצגו בשפת המקור"
-                },
-                modifier = Modifier.padding(start = 12.dp),
+                "לשאר הכותרות האפליקציה מתרגמת על המכשיר עצמו — שום דבר לא נשלח " +
+                    "החוצה. התרגום אוטומטי, ולפעמים מגושם.",
+                modifier = Modifier.padding(top = 8.dp),
+            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(top = 12.dp),
+            ) {
+                Switch(
+                    checked = translateTitles,
+                    onCheckedChange = onTranslateTitlesChange,
+                    modifier = Modifier.testTag("translate-switch"),
+                )
+                Text(
+                    text = if (translateTitles) {
+                        // The count is the only honest progress signal: the model
+                        // downloads over Wi-Fi only, and until it lands nothing is
+                        // translated.
+                        translatedCount.toString() + " כותרות תורגמו"
+                    } else {
+                        "כבוי — הכותרות יוצגו בשפת המקור"
+                    },
+                    modifier = Modifier.padding(start = 12.dp),
+                )
+            }
+        } else {
+            // No switch rather than a dead one. The alternative was a toggle that
+            // reports "0 translated" for ever, which reads as a broken sync.
+            Text(
+                "בגרסה הזו אין מתרגם מותקן, ולכן כותרת שהיוצר לא פרסם בעברית תוצג " +
+                    "בשפת המקור.",
+                modifier = Modifier.padding(top = 8.dp),
             )
         }
 

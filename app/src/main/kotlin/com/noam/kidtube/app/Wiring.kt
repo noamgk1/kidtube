@@ -4,10 +4,10 @@ import android.content.Context
 import com.noam.kidtube.app.admin.AdminAuthenticator
 import com.noam.kidtube.app.sync.CatalogSync
 import com.noam.kidtube.app.sync.TitleTranslationPass
-import com.noam.kidtube.app.translate.MlKitTitleTranslator
 import com.noam.kidtube.core.BudgetAccountant
 import com.noam.kidtube.core.Clock
 import com.noam.kidtube.core.Policy
+import com.noam.kidtube.core.TitleTranslator
 import com.noam.kidtube.core.store.BackupCodec
 import com.noam.kidtube.core.store.BudgetStore
 import com.noam.kidtube.core.store.CatalogStore
@@ -138,7 +138,10 @@ object Wiring {
                 catalogStore = catalogStore,
                 translationStore = translationStore,
                 settingsStore = settingsStore,
-                translator = MlKitTitleTranslator(),
+                // No translator ships: the only on-device one available was ML Kit,
+                // whose licence cannot be combined with this project's. See
+                // TitleTranslator.None.
+                translator = TitleTranslator.None,
             ),
             backupCodec = BackupCodec(whitelistStore, catalogStore, settingsStore, watchLedger),
             budgetAccountant = BudgetAccountant(clock),

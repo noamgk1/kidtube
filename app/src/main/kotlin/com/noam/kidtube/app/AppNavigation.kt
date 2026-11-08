@@ -854,6 +854,7 @@ private fun AdminHost(graph: Graph, authenticator: AdminAuthenticator, onExit: (
                         }
                     },
                     translatedCount = translatedCount,
+                    translatorInstalled = graph.titleTranslation.translatorInstalled,
                     embeddedPlayer = embeddedPlayer,
                     lastEmbeddedQuality = lastEmbeddedQuality,
                     onEmbeddedPlayerChange = { wanted ->

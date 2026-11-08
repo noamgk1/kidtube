@@ -3,7 +3,7 @@
 [![Licence: GPL v3](https://img.shields.io/badge/licence-GPLv3-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Android%208.0%2B-brightgreen.svg)](#building)
 [![Kotlin](https://img.shields.io/badge/kotlin-2.0-7f52ff.svg)](#building)
-[![Tests](https://img.shields.io/badge/tests-425%20unit%20passing-success.svg)](#status)
+[![Tests](https://img.shields.io/badge/tests-429%20unit%20passing-success.svg)](#status)
 
 An Android tablet app that plays YouTube **only** from a whitelist a parent approves.
 No server. Storage is plain files on the device. The parent's side lives in the same
@@ -38,9 +38,9 @@ Read these four things first; each of them will matter to you.
   yourself.
 - **The interface is in Hebrew**, and so are the UI strings in the source. The code,
   comments and documentation are in English. There is no localisation layer yet.
-- **GPLv3, with one distribution trap.** On-device title translation uses the proprietary
-  ML Kit. Building and running that for yourself is fine; handing the APK to other people
-  is not. See [Licence](#licence) — it explains the one-line change that removes it.
+- **GPLv3, and the APK is distributable.** Every dependency that ships is GPL-compatible;
+  there is no proprietary code in the build. See [Licence](#licence) for the dependency
+  list and the one obligation that comes with handing the APK to someone.
 - **Kids content is capped at 360p by YouTube**, and we measured that it stays capped even
   with a genuine proof-of-origin token. See [the gate result](#the-verification-gate-has-run-and-the-answer-is-the-adverse-one)
   before you expect 1080p.
@@ -52,8 +52,8 @@ Read these four things first; each of them will matter to you.
 
 | | |
 |---|---|
-| Unit tests | **425, all passing** — verified 8 November 2026 (`./gradlew test`) |
-| Instrumented tests | 41 in the tree, needing a device or emulator. Several are opt-in: the network suite behind `-PnetworkTest=true`, and the proof-of-origin gate. Last recorded full run passed on an Android 15 emulator. |
+| Unit tests | **429, all passing** — verified 8 November 2026 (`./gradlew test`) |
+| Instrumented tests | 39 in the tree, needing a device or emulator. Several are opt-in: the network suite behind `-PnetworkTest=true`, and the proof-of-origin gate. Last recorded full run passed on an Android 15 emulator. |
 | `assembleDebug` | succeeds |
 
 ### The verification gate has run, and the answer is the adverse one
@@ -88,9 +88,18 @@ adb logcat -d -s System.out | grep -E "GATE/|CANARY/"
 
 ## Installing it
 
+The build splits by ABI and produces no universal APK, so there is no `app-release.apk` —
+pick the one matching the tablet. `arm64-v8a` is what any Android tablet made in the last
+several years wants.
+
 ```bash
-./gradlew :app:assembleRelease     # app/build/outputs/apk/release/app-release.apk  (~1.8 MB)
-adb install -r app/build/outputs/apk/release/app-release.apk
+./gradlew :app:assembleRelease
+ls app/build/outputs/apk/release/
+#   app-arm64-v8a-release.apk     3.6 MB   <- almost certainly this one
+#   app-armeabi-v7a-release.apk   3.6 MB   32-bit devices
+#   app-x86_64-release.apk        3.6 MB   emulators
+
+adb install -r app/build/outputs/apk/release/app-arm64-v8a-release.apk
 ```
 
 **Install the release build, not the debug one.** A debug APK is `debuggable`, and on a
@@ -162,13 +171,25 @@ switching helped, because nothing else on screen can tell you.
 ### Hebrew titles
 
 YouTube is asked for Hebrew and returns the creator's own Hebrew title wherever one was
-published. Most English children's channels have not published any, so the rest are
-machine-translated **on the device** — a one-off ~30MB model, downloaded over Wi-Fi only,
-and nothing about what the child watches leaves the tablet.
+published — a real feature of YouTube's, not a guess made here. Most English children's
+channels have published none, and those titles stay in their original language.
 
-It is machine translation of short, punctuation-heavy strings and it reads like it:
-*"Top 20 Anniversary Hit Songs"* comes out as *"למעלה 20 יום נישואין פגע שירים"*. Turn it
-off under **הגדרות** if the original titles are preferable.
+**There is no machine translation in this build.** There used to be: ML Kit translated the
+rest on the device, which worked but was proprietary, and an APK combining it with this
+project's GPLv3 code could not be given to anyone. Removing it is what makes the APK
+distributable, and it cost only the fallback. It was also mediocre at the job — *"Top 20
+Anniversary Hit Songs"* came out as *"למעלה 20 יום נישואין פגע שירים"*.
+
+Everything around the translator is still here and still tested: the
+[`TitleTranslator`](core/src/main/kotlin/com/noam/kidtube/core/TitleTranslator.kt) port,
+the translation pass that walks approved catalogs, and the cache the child's grid reads
+from. The wiring uses `TitleTranslator.None`. Dropping in a licence-compatible translator
+is one object and one line in [`Wiring.kt`](app/src/main/kotlin/com/noam/kidtube/app/Wiring.kt);
+whatever replaces it must translate on the device, because a title is a record of what a
+child watched and sending one to a service is the thing this app exists to avoid.
+
+With no translator installed the parent screen says so and shows no switch, rather than
+offering one that would report "0 translated" for ever.
 
 ## Building
 
@@ -305,21 +326,44 @@ was, for the parent as much as for the child. The only reset is destructive.
 
 **GPLv3** — see [`LICENSE`](LICENSE), inherited from NewPipeExtractor.
 
-One thing to know before redistributing: on-device translation uses **ML Kit**, which is
-proprietary. Combining it with GPLv3 code is fine to build and run for yourself — the GPL
-obligations attach to *distribution* — but shipping the result to other people would put
-the two licences in conflict. Dropping `libs.mlkit.translate` and the `translate` package
-removes it; everything else keeps working, and titles fall back to whatever YouTube
-returns.
+`NewPipeExtractor` is GPLv3-or-later with no linking exception, so any APK containing
+`:engine-extractor` is a combined work that must be GPLv3, and its source must be
+available. That is not a preference; it is the licence of a dependency the app is built
+on.
 
-This is not a preference. `NewPipeExtractor` is GPLv3 with no linking exception, so any
-APK containing `:engine-extractor` is a combined work that must be GPLv3, and its source
-must be available. Personal use involves no distribution and so no obligation; sending
-the APK to anyone does.
+### The APK can be handed to other people
 
-Separately, the extractor engine works against YouTube's internal API, which is contrary
-to YouTube's terms of service and rules out Google Play regardless of licensing.
+It could not before. On-device title translation used **ML Kit**, which is proprietary,
+and a GPLv3 work cannot be combined with it and then distributed. It has been removed —
+see [Hebrew titles](#hebrew-titles) for what that cost and for the seam left in its place.
+
+Every dependency that ends up in the APK, as declared in its own POM:
+
+| Dependency | Licence | |
+|---|---|---|
+| NewPipeExtractor | GPL-3.0-or-later | the one that sets the APK's licence |
+| jsoup | MIT | |
+| OkHttp | Apache-2.0 | |
+| Coil | Apache-2.0 | |
+| AndroidX, Compose, Media3 | Apache-2.0 | |
+| kotlinx serialization, coroutines | Apache-2.0 | |
+| nanojson | MIT upstream, but the TeamNewPipe fork declares none in its POM | |
+| `desugar_jdk_libs_nio` | GPL-2.0 **with the Classpath Exception** | the exception exists to permit exactly this kind of combination |
+
+So what you owe anyone you give the APK to is the GPLv3 obligation itself: the
+corresponding source, under GPLv3. This repository being public satisfies it — point them
+at it, and keep the tag you built from.
+
+### Two things that are not licensing
+
+- **Sign it with your own key.** The release build is signed with the local debug keystore
+  so it installs without any setup. That key is public, so an APK carrying it proves
+  nothing about who built it. Before handing the APK to anyone, set up a real key — see
+  [Installing it](#installing-it).
+- **Google Play is out regardless.** The extractor engine works against YouTube's internal
+  API, which is contrary to YouTube's terms of service. Sideloading is the distribution
+  channel.
 
 The module boundary pays an unplanned dividend here: `:engine-extractor` is the only
-GPL-contaminated module, so a future official-API engine could ship from the same
-`:core` and `:app` without it.
+GPL-contaminated module, so a future official-API engine could ship from the same `:core`
+and `:app` without it.
